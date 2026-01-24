@@ -1,0 +1,50 @@
+{
+  "name": "vector-standalone",
+  "version": "1.0.8",
+  "description": "Smart Mirror VECTOR Offline Standalone App",
+  "author": "Yerniyaz",
+  "main": "main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "npm run build && electron-builder --linux --arm64 -p always",
+    "deploy": "node deploy.js"
+  },
+  "dependencies": {
+    "@mantine/core": "^7.0.0",
+    "@mantine/hooks": "^7.0.0",
+    "electron-log": "^5.0.0",
+    "electron-updater": "^6.1.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.0.0",
+    "concurrently": "^8.2.0",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "vite": "^4.4.0",
+    "wait-on": "^7.0.1"
+  },
+  "build": {
+    "appId": "kz.yeee.vector",
+    "productName": "VectorMirror",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://updater.yeee.kz/"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility",
+      "executableName": "vector-mirror"
+    }
+  }
+}
