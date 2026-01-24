@@ -1,19 +1,22 @@
 {
   "name": "vector-standalone",
-  "version": "1.0.8",
+  "version": "1.0.12",
   "description": "Smart Mirror VECTOR Offline Standalone App",
   "author": "Yerniyaz",
   "main": "main.js",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder --linux --arm64 -p always",
-    "deploy": "node deploy.js"
+    "deploy": "node deploy.cjs"
   },
   "dependencies": {
     "@mantine/core": "^7.0.0",
+    "@mantine/dates": "^7.17.8",
     "@mantine/hooks": "^7.0.0",
+    "dayjs": "^1.11.19",
     "electron-log": "^5.0.0",
     "electron-updater": "^6.1.7",
     "react": "^18.2.0",
@@ -37,6 +40,15 @@
       {
         "provider": "generic",
         "url": "https://updater.yeee.kz/"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "src/python",
+        "to": "python",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "linux": {
