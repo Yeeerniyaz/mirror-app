@@ -1,8 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { spawn, exec, execSync } from 'child_process';
-// Исправление ошибки импорта CommonJS модуля в ESM
+import { spawn, exec } from 'child_process';
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 
@@ -13,12 +12,11 @@ app.disableHardwareAcceleration();
 
 let mainWindow;
 
-/**
- * Функция открытия внешних сервисов (YouTube, Календарь и т.д.)
- */
 function openService(url, isTV = false) {
     let win = new BrowserWindow({
-        fullscreen: true, // Всегда во весь экран
+        fullscreen: true,
+        kiosk: true, 
+        frame: false,
         backgroundColor: '#000',
         webPreferences: {
             nodeIntegration: false,
@@ -26,91 +24,74 @@ function openService(url, isTV = false) {
             userAgent: isTV ? "Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/2.2 Chrome/63.0.3239.111 Safari/537.36" : undefined
         }
     });
-
     win.loadURL(url);
-
-    // Добавляем ТОЛЬКО кнопку закрытия, не трогая оригинальный CSS сайта
-  
+    win.webContents.on('did-finish-load', () => {
+        win.webContents.insertCSS('::-webkit-scrollbar { display: none; }');
+    });
 }
 
-/**
- * Обработка системных команд
- */
+// --- ОБРАБОТЧИКИ ---
 ipcMain.on('launch', (event, { data, type, isTV }) => {
-    if (type === 'sys') {
-        exec(data);
-    } else {
-        openService(data, isTV);
-    }
+    if (type === 'sys') exec(data);
+    else openService(data, isTV);
 });
 
-// Управление яркостью (через sudo tee)
 ipcMain.on('set-brightness', (event, value) => {
-    const brightness = Math.round((value / 100) * 255);
-    exec(`echo ${brightness} | sudo tee /sys/class/backlight/*/brightness`);
+    const b = Math.round((value / 100) * 255);
+    exec(`echo ${b} | sudo tee /sys/class/backlight/*/brightness`);
 });
 
-// Команды системы (удален shutdown, оставлен только reboot)
 ipcMain.on('system-cmd', (event, cmd) => {
-    if (cmd === 'reboot') {
-        exec('sudo reboot');
+    if (cmd === 'reboot') exec('sudo reboot');
+});
+
+ipcMain.on('check-for-updates', () => {
+    if (app.isPackaged) {
+        autoUpdater.checkForUpdatesAndNotify();
+        mainWindow.webContents.send('update_status', 'Проверка обновлений...');
+    } else {
+        mainWindow.webContents.send('update_status', 'Dev-mode: Ок');
     }
 });
 
-ipcMain.on('update-software', () => {
-    // Команда для обновления через git и перезапуска
-    exec('cd ~/projects/vector-standalone && git pull && npm install && npm run build && sudo reboot');
+// Передача версии приложения
+ipcMain.on('get-app-version', (event) => {
+    event.reply('app-version', app.getVersion());
 });
 
-/**
- * Основные функции запуска
- */
-function startPythonBridge() {
-    const dbPath = path.join(app.getPath('userData'), 'vector.db');
-    const pythonScriptPath = app.isPackaged 
-        ? path.join(process.resourcesPath, 'python', 'bridge.py') 
-        : path.join(__dirname, 'src', 'python', 'bridge.py');
-    
-    const pyProcess = spawn('python3', [pythonScriptPath, dbPath]);
-    pyProcess.stdout.on('data', (data) => console.log(`[Python]: ${data}`));
-}
+autoUpdater.on('update-not-available', () => {
+    mainWindow.webContents.send('update_status', 'У вас последняя версия');
+    setTimeout(() => mainWindow.webContents.send('update_status', ''), 4000);
+});
+
+autoUpdater.on('download-progress', (p) => {
+    mainWindow.webContents.send('update_progress', p.percent);
+    mainWindow.webContents.send('update_status', 'Загрузка...');
+});
+
+autoUpdater.on('update-downloaded', () => {
+    mainWindow.webContents.send('update_status', 'Готово! Перезапуск...');
+    setTimeout(() => { autoUpdater.quitAndInstall(); }, 3000);
+});
 
 function createWindow() {
     mainWindow = new BrowserWindow({
         fullscreen: true,
         frame: false,
         backgroundColor: '#000000',
-        webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
+        webPreferences: { 
+            nodeIntegration: true, 
+            contextIsolation: false 
         }
     });
-
-    const url = app.isPackaged 
-        ? `file://${path.join(__dirname, 'dist/index.html')}` 
-        : 'http://localhost:5173';
-
+    const url = app.isPackaged ? `file://${path.join(__dirname, 'dist/index.html')}` : 'http://localhost:5173';
     mainWindow.loadURL(url);
-
-    // Вывод статуса обновления на экран (Dashboard)
-    autoUpdater.on('update-available', () => {
-        mainWindow.webContents.send('update_status', 'Найдено обновление...');
-    });
-    autoUpdater.on('download-progress', (progress) => {
-        mainWindow.webContents.send('update_progress', progress.percent);
-    });
-    autoUpdater.on('update-downloaded', () => {
-        mainWindow.webContents.send('update_status', 'Обновление готово. Перезагрузка...');
-        setTimeout(() => { autoUpdater.quitAndInstall(); }, 3000);
+    
+    // Отправляем версию сразу после загрузки
+    mainWindow.webContents.on('did-finish-load', () => {
+        mainWindow.webContents.send('app-version', app.getVersion());
     });
 }
 
-app.whenReady().then(() => {
-    startPythonBridge();
-    createWindow();
-    if (app.isPackaged) autoUpdater.checkForUpdatesAndNotify();
-});
-
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
-});
+app.whenReady().then(createWindow);
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
