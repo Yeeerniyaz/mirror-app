@@ -1,7 +1,13 @@
-import { Container, Stack, Title, SimpleGrid, Text, Slider, ActionIcon, Center, UnstyledButton, Group } from "@mantine/core";
-import { RefreshCw } from "lucide-react";
+import { Container, Stack, Title, SimpleGrid, Text, ActionIcon, Center, UnstyledButton, Group } from "@mantine/core";
+import { RefreshCw, WifiOff } from "lucide-react";
 
-export const Settings = ({ brightness, setBrightness, sendCmd, updateMirror, appVersion, ipcRenderer }) => (
+export const Settings = ({ 
+  sendCmd, 
+  updateMirror, 
+  updatePython, 
+  resetWifi, 
+  appVersion 
+}) => (
   <Container
     fluid
     p="100px"
@@ -18,21 +24,9 @@ export const Settings = ({ brightness, setBrightness, sendCmd, updateMirror, app
       >
         SETTINGS
       </Title>
+
       <SimpleGrid cols={2} spacing="150px">
-        <Stack gap="xl">
-          <Text fw={900} size="sm" style={{ letterSpacing: "4px" }}>
-            BRIGHTNESS
-          </Text>
-          <Slider
-            color="gray"
-            size="lg"
-            value={brightness}
-            onChange={(v) => {
-              setBrightness(v);
-              ipcRenderer?.send("set-brightness", v);
-            }}
-          />
-        </Stack>
+        {/* Перезагрузка */}
         <Stack gap="xl">
           <Text fw={900} size="sm" style={{ letterSpacing: "4px" }}>
             SYSTEM REBOOT
@@ -47,8 +41,47 @@ export const Settings = ({ brightness, setBrightness, sendCmd, updateMirror, app
             <RefreshCw size={40} />
           </ActionIcon>
         </Stack>
+
+        {/* Сброс Wi-Fi */}
+        <Stack gap="xl">
+          <Text fw={900} size="sm" style={{ letterSpacing: "4px" }}>
+            RESET NETWORK
+          </Text>
+          <ActionIcon
+            size="100px"
+            variant="outline"
+            color="red"
+            onClick={() => {
+              if (window.confirm("RESET WI-FI SETTINGS?")) {
+                resetWifi();
+              }
+            }}
+            style={{ border: "1px solid #ff0000" }}
+          >
+            <WifiOff size={40} />
+          </ActionIcon>
+        </Stack>
       </SimpleGrid>
-      <Center mt="100px">
+
+      <SimpleGrid cols={2} spacing="150px">
+        {/* Обновление Python (Датчики) */}
+        <Stack gap="xl">
+          <Text fw={900} size="sm" style={{ letterSpacing: "4px" }}>
+            UPDATE SENSORS
+          </Text>
+          <ActionIcon
+            size="100px"
+            variant="outline"
+            color="orange"
+            onClick={updatePython}
+            style={{ border: "1px solid #ffa500" }}
+          >
+            <RefreshCw size={40} color="#ffa500" />
+          </ActionIcon>
+        </Stack>
+      </SimpleGrid>
+
+      <Center mt="50px">
         <UnstyledButton
           onClick={updateMirror}
           style={{
@@ -70,6 +103,7 @@ export const Settings = ({ brightness, setBrightness, sendCmd, updateMirror, app
         </UnstyledButton>
       </Center>
     </Stack>
+
     <Text
       size="xs"
       fw={700}
