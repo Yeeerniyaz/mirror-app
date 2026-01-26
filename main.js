@@ -1,8 +1,9 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { spawn, exec } from 'child_process';
+import { exec } from 'child_process';
 import pkg from 'electron-updater';
+
 const { autoUpdater } = pkg;
 
 const __filename = fileURLToPath(import.meta.url);
@@ -30,7 +31,6 @@ function openService(url, isTV = false) {
     });
 }
 
-// --- ОБРАБОТЧИКИ ---
 ipcMain.on('launch', (event, { data, type, isTV }) => {
     if (type === 'sys') exec(data);
     else openService(data, isTV);
@@ -54,7 +54,6 @@ ipcMain.on('check-for-updates', () => {
     }
 });
 
-// Передача версии приложения
 ipcMain.on('get-app-version', (event) => {
     event.reply('app-version', app.getVersion());
 });
@@ -81,13 +80,13 @@ function createWindow() {
         backgroundColor: '#000000',
         webPreferences: { 
             nodeIntegration: true, 
-            contextIsolation: false 
+            contextIsolation: false,
+            webSecurity: false // Важное изменение для работы с Python API
         }
     });
     const url = app.isPackaged ? `file://${path.join(__dirname, 'dist/index.html')}` : 'http://localhost:5173';
     mainWindow.loadURL(url);
     
-    // Отправляем версию сразу после загрузки
     mainWindow.webContents.on('did-finish-load', () => {
         mainWindow.webContents.send('app-version', app.getVersion());
     });
