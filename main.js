@@ -8,6 +8,7 @@ const { autoUpdater } = pkg;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Отключаем аппаратное ускорение для стабильности на Raspberry Pi
 app.disableHardwareAcceleration(); 
 
 let mainWindow;
@@ -19,23 +20,29 @@ function createWindow() {
         backgroundColor: '#000000',
         webPreferences: { 
             nodeIntegration: true, 
-            contextIsolation: false,
+            contextIsolation: false, // Оставляем false для прямого доступа к ipcRenderer через window.require
             webSecurity: false 
         }
     });
 
+    // Путь для работы в AppImage и в режиме разработки
     const url = app.isPackaged 
         ? `file://${path.join(__dirname, 'dist/index.html')}` 
         : 'http://localhost:5173';
     
     mainWindow.loadURL(url);
 
+    // Отправка версии приложения на фронтенд при загрузке
     mainWindow.webContents.on('did-finish-load', () => {
         mainWindow.webContents.send('app-version', app.getVersion());
     });
+
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
 }
 
-// --- ОБНОВЛЕНИЯ ---
+// --- ФУНКЦИОНАЛ ОБНОВЛЕНИЙ (AppImage) ---
 ipcMain.on('check-for-updates', () => {
     if (app.isPackaged) {
         autoUpdater.checkForUpdatesAndNotify();
@@ -45,32 +52,75 @@ ipcMain.on('check-for-updates', () => {
     }
 });
 
-autoUpdater.on('update-available', () => mainWindow?.webContents.send('update_status', 'Найдено обновление!'));
-autoUpdater.on('update-not-available', () => {
-    mainWindow?.webContents.send('update_status', 'У вас последняя версия');
-    setTimeout(() => mainWindow?.webContents.send('update_status', ''), 4000);
-});
-autoUpdater.on('download-progress', (p) => mainWindow?.webContents.send('update_progress', p.percent));
-autoUpdater.on('update-downloaded', () => {
-    mainWindow?.webContents.send('update_status', 'Готово! Перезапуск...');
-    setTimeout(() => autoUpdater.quitAndInstall(), 3000);
+autoUpdater.on('update-available', () => {
+    mainWindow?.webContents.send('update_status', 'Найдено обновление!');
 });
 
-// --- СИСТЕМА ---
+autoUpdater.on('update-not-available', () => {
+    mainWindow?.webContents.send('update_status', 'У вас последняя версия');
+    setTimeout(() => {
+        mainWindow?.webContents.send('update_status', '');
+    }, 4000);
+});
+
+autoUpdater.on('download-progress', (p) => {
+    mainWindow?.webContents.send('update_progress', p.percent);
+});
+
+autoUpdater.on('update-downloaded', () => {
+    mainWindow?.webContents.send('update_status', 'Готово! Перезапуск...');
+    setTimeout(() => {
+        autoUpdater.quitAndInstall();
+    }, 3000);
+});
+
+autoUpdater.on('error', (err) => {
+    mainWindow?.webContents.send('update_status', 'Ошибка обновления');
+    console.error(err);
+});
+
+// --- СИСТЕМНЫЙ ФУНКЦИОНАЛ ---
 ipcMain.on('system-cmd', (event, cmd) => {
-    if (cmd === 'reboot') exec('sudo reboot');
+    if (cmd === 'reboot') {
+        exec('sudo reboot');
+    }
     if (cmd === 'start-ap') {
+        // Создание точки доступа для настройки Wi-Fi
         exec('nmcli device wifi hotspot ssid VECTOR_MIRROR password vector123');
     }
 });
 
+// --- ФУНКЦИОНАЛ ЗАПУСКА ПРИЛОЖЕНИЙ (HUB) ---
 ipcMain.on('launch', (event, { data, type, isTV }) => {
-    if (type === 'sys') exec(data);
-    else {
-        let win = new BrowserWindow({ fullscreen: true, kiosk: true, frame: false });
+    if (type === 'sys') {
+        // Запуск системных приложений (например, браузера или скрипта)
+        exec(data);
+    } else {
+        // Запуск URL в новом полноэкранном окне (YouTube, Keep и т.д.)
+        let win = new BrowserWindow({ 
+            fullscreen: true, 
+            kiosk: true, 
+            frame: false,
+            backgroundColor: '#000000'
+        });
         win.loadURL(data);
+        
+        // Закрытие по требованию или обработка фокуса может быть добавлена здесь
+        win.on('closed', () => { win = null; });
     }
 });
 
+// --- ЗАПУСК ПРИЛОЖЕНИЯ ---
 app.whenReady().then(createWindow);
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
+});
+
+app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+    }
+});
