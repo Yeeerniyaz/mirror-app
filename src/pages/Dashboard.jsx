@@ -16,7 +16,6 @@ export const Dashboard = ({ time, weather, sensors, news }) => (
             {dayjs(time).locale("ru").format("dddd, D MMMM")}
           </Text>
         </Stack>
-        
         <Box mt="xl" style={{ opacity: 0.8, marginLeft: "-15px", width: "280px" }}>
           <Calendar
             locale="ru"
@@ -24,19 +23,12 @@ export const Dashboard = ({ time, weather, sensors, news }) => (
             withControls={false}
             styles={{
               calendar: { backgroundColor: "transparent", border: "none" },
-              day: {
-                color: "#fff",
-                fontSize: "14px", 
-                width: "35px",
-                height: "35px",
-                "&[data-today]": { color: "#000", backgroundColor: "#fff", borderRadius: "50%" },
-              },
+              day: { color: "#fff", fontSize: "14px", width: "35px", height: "35px", "&[data-today]": { color: "#000", backgroundColor: "#fff", borderRadius: "50%" } },
               calendarHeader: { display: 'none' }, 
             }}
           />
         </Box>
       </Stack>
-      
       <Stack align="flex-end" gap="60px">
         <Group gap="xl" align="center">
           <Text style={{ fontSize: "80px", fontWeight: 100 }}>{weather.temp}°</Text>
@@ -48,13 +40,10 @@ export const Dashboard = ({ time, weather, sensors, news }) => (
         </Stack>
       </Stack>
     </Group>
-
     <Box mt="xl" pt="xl" style={{ borderTop: "1px solid #222" }}>
       <Group justify="space-between" wrap="nowrap">
         <Text fw={900} size="xs" style={{ letterSpacing: "3px" }}>TENGRI NEWS</Text>
-        <marquee scrollamount="6" style={{ fontSize: "28px", fontWeight: 200, width: "100%", marginLeft: "40px" }}>
-          {news.join("   //   ")}
-        </marquee>
+        <marquee scrollamount="6" style={{ fontSize: "28px", fontWeight: 200, width: "100%", marginLeft: "40px" }}>{news.join("   //   ")}</marquee>
       </Group>
     </Box>
   </Container>
