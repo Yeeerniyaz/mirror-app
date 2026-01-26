@@ -20,7 +20,7 @@ function createWindow() {
         backgroundColor: '#000000',
         webPreferences: { 
             nodeIntegration: true, 
-            contextIsolation: false, // Оставляем false для прямого доступа к ipcRenderer через window.require
+            contextIsolation: false, // Для прямого доступа к ipcRenderer
             webSecurity: false 
         }
     });
@@ -42,7 +42,7 @@ function createWindow() {
     });
 }
 
-// --- ФУНКЦИОНАЛ ОБНОВЛЕНИЙ (AppImage) ---
+// --- ФУНКЦИОНАЛ ОБНОВЛЕНИЙ (AppImage через твой сервер) ---
 ipcMain.on('check-for-updates', () => {
     if (app.isPackaged) {
         autoUpdater.checkForUpdatesAndNotify();
@@ -79,24 +79,21 @@ autoUpdater.on('error', (err) => {
     console.error(err);
 });
 
-// --- СИСТЕМНЫЙ ФУНКЦИОНАЛ ---
+// --- СИСТЕМА ---
 ipcMain.on('system-cmd', (event, cmd) => {
     if (cmd === 'reboot') {
         exec('sudo reboot');
     }
-    if (cmd === 'start-ap') {
-        // Создание точки доступа для настройки Wi-Fi
-        exec('nmcli device wifi hotspot ssid VECTOR_MIRROR password vector123');
-    }
+    // Логика точки доступа (start-ap) удалена по твоему запросу
 });
 
-// --- ФУНКЦИОНАЛ ЗАПУСКА ПРИЛОЖЕНИЙ (HUB) ---
-ipcMain.on('launch', (event, { data, type, isTV }) => {
+// --- ЗАПУСК ПРИЛОЖЕНИЙ (HUB) ---
+ipcMain.on('launch', (event, { data, type }) => {
     if (type === 'sys') {
-        // Запуск системных приложений (например, браузера или скрипта)
+        // Запуск системных команд или скриптов
         exec(data);
     } else {
-        // Запуск URL в новом полноэкранном окне (YouTube, Keep и т.д.)
+        // Запуск сайтов (YouTube TV, Google Keep и т.д.) в новом окне поверх зеркала
         let win = new BrowserWindow({ 
             fullscreen: true, 
             kiosk: true, 
@@ -104,13 +101,11 @@ ipcMain.on('launch', (event, { data, type, isTV }) => {
             backgroundColor: '#000000'
         });
         win.loadURL(data);
-        
-        // Закрытие по требованию или обработка фокуса может быть добавлена здесь
         win.on('closed', () => { win = null; });
     }
 });
 
-// --- ЗАПУСК ПРИЛОЖЕНИЯ ---
+// --- ИНИЦИАЛИЗАЦИЯ ---
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {

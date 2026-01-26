@@ -5,12 +5,12 @@ import { Box, Progress, Text } from "@mantine/core";
 import { Dashboard } from "./pages/Dashboard";
 import { Hub } from "./pages/Hub";
 import { Settings } from "./pages/Settings";
-import { SetupMode } from "./pages/SetupMode";
 
+// Константы API
 const WEATHER_API = "https://api.open-meteo.com/v1/forecast?latitude=43.2389&longitude=76.8897&current_weather=true";
 const SENSORS_API = "http://127.0.0.1:5005/api/sensors";
+const RSS_API = "https://api.rss2json.com/v1/api.json?rss_url=";
 
-// Выносим ipcRenderer, чтобы он был доступен везде
 const ipc = window.require ? window.require("electron").ipcRenderer : null;
 
 export default function App() {
@@ -19,44 +19,84 @@ export default function App() {
   const [time, setTime] = useState(new Date());
   const [sensors, setSensors] = useState({ temp: "--", hum: "--", co2: "--" });
   const [weather, setWeather] = useState({ temp: "--", code: 0 });
-  const [news, setNews] = useState(["Загрузка VECTOR OS..."]);
+  const [news, setNews] = useState([]);
   const [updStatus, setUpdStatus] = useState("");
   const [updProgress, setUpdProgress] = useState(0);
   const [appVersion, setAppVersion] = useState("N/A");
-  const [isConfiguring, setIsConfiguring] = useState(false);
 
   // Методы управления
   const launch = (data, type, isTV = false) => ipc?.send("launch", { data, type, isTV });
   const sendCmd = (cmd) => ipc?.send("system-cmd", cmd);
   const updateMirror = () => ipc?.send("check-for-updates");
-  
-  const startWifiSetup = () => {
-    setIsConfiguring(true);
-    sendCmd("start-ap");
+
+  // Обновление Python-сервиса датчиков
+  const updatePython = async () => {
+    setUpdStatus("ОБНОВЛЕНИЕ ДАТЧИКОВ...");
+    try {
+      const res = await fetch("http://127.0.0.1:5005/api/system/update-python", { method: 'POST' });
+      if (res.ok) setUpdStatus("PYTHON ОБНОВЛЕН!");
+      else setUpdStatus("ОШИБКА СЕРВЕРА");
+    } catch (e) {
+      setUpdStatus("PYTHON НЕ ОТВЕЧАЕТ");
+    }
+    setTimeout(() => setUpdStatus(""), 4000);
   };
 
   const fetchData = async () => {
     try {
-      const [wRes, nRes, sRes] = await Promise.all([
-        fetch(WEATHER_API).then((r) => r.json()),
-        fetch("https://api.rss2json.com/v1/api.json?rss_url=https://tengrinews.kz/news.rss").then((r) => r.json()),
-        fetch(SENSORS_API).then((r) => r.json()).catch(() => null),
+      // Загружаем новости Казахстана (3 источника), Погоду и Датчики через Promise.allSettled
+      // Это гарантирует, что если Zakon упадет, Tengri и Nur все равно покажут новости
+      const results = await Promise.allSettled([
+        fetch(`${RSS_API}https://tengrinews.kz/news.rss`).then(r => r.json()),
+        fetch(`${RSS_API}https://www.zakon.kz/rss/news.xml`).then(r => r.json()),
+        fetch(`${RSS_API}https://www.nur.kz/rss/all.xml`).then(r => r.json()),
+        fetch(WEATHER_API).then(r => r.json()),
+        fetch(SENSORS_API).then(r => r.json())
       ]);
+
+      // 1. Сбор новостей
+      let combinedNews = [];
+      const sources = ["TENGRI NEWS", "ZAKON.KZ", "NUR.KZ"];
       
-      setWeather({ temp: Math.round(wRes.current_weather.temperature), code: wRes.current_weather.weathercode });
-      setNews(nRes.items.map((i) => i.title));
-      if (sRes) setSensors({ temp: sRes.temp, hum: sRes.hum, co2: sRes.co2 });
-      
-      // Если интернет появился, закрываем QR-код
-      if (isConfiguring && nRes.items.length > 0) setIsConfiguring(false);
+      [0, 1, 2].forEach(index => {
+        if (results[index].status === 'fulfilled' && results[index].value?.items) {
+          results[index].value.items.forEach(item => {
+            combinedNews.push({
+              title: item.title,
+              date: item.pubDate,
+              source: sources[index]
+            });
+          });
+        }
+      });
+
+      // Сортировка по времени публикации
+      if (combinedNews.length > 0) {
+        setNews(combinedNews.sort((a, b) => new Date(b.date) - new Date(a.date)));
+      }
+
+      // 2. Обработка погоды (результат №3)
+      if (results[3].status === 'fulfilled' && results[3].value?.current_weather) {
+        setWeather({ 
+          temp: Math.round(results[3].value.current_weather.temperature), 
+          code: results[3].value.current_weather.weathercode 
+        });
+      }
+
+      // 3. Обработка датчиков CO2/Temp/Hum (результат №4)
+      if (results[4].status === 'fulfilled' && results[4].value) {
+        setSensors({ 
+          temp: results[4].value.temp || "--", 
+          hum: results[4].value.hum || "--", 
+          co2: results[4].value.co2 || "--" 
+        });
+      }
     } catch (e) {
-      console.error("Data fetch error:", e);
-      // Если новостей нет совсем — значит оффлайн, открываем настройку
-      if (news.length === 0 || news[0].includes("Загрузка")) setIsConfiguring(true);
+      console.error("Critical fetch failed", e);
     }
   };
 
-  // ЭФФЕКТ 1: Постоянные слушатели (только при монтировании)
+  // Эффект при монтировании (клавиатура, IPC, часы)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "ArrowRight") setPage((p) => Math.min(p + 1, 2));
@@ -65,9 +105,9 @@ export default function App() {
     window.addEventListener("keydown", handleKeyDown);
 
     if (ipc) {
-      ipc.on("update_status", (event, message) => setUpdStatus(message));
-      ipc.on("update_progress", (event, progress) => setUpdProgress(progress));
-      ipc.on("app-version", (event, ver) => setAppVersion(ver));
+      ipc.on("update_status", (e, m) => setUpdStatus(m));
+      ipc.on("update_progress", (e, p) => setUpdProgress(p));
+      ipc.on("app-version", (e, v) => setAppVersion(v));
       ipc.send("get-app-version");
     }
 
@@ -82,17 +122,17 @@ export default function App() {
     };
   }, []);
 
-  // ЭФФЕКТ 2: Обновление данных (каждые 30 сек)
+  // Интервал обновления данных (60 сек)
   useEffect(() => {
     fetchData();
-    const dataTimer = setInterval(fetchData, 30000);
+    const dataTimer = setInterval(fetchData, 60000);
     return () => clearInterval(dataTimer);
-  }, [isConfiguring]);
+  }, []);
 
   return (
     <Box style={{ backgroundColor: "#000", height: "100vh", width: "100vw", overflow: "hidden", color: "white" }}>
       
-      {/* Оверлей обновлений */}
+      {/* Уведомление об обновлениях */}
       {updStatus && (
         <Box style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", zIndex: 1000, width: 350, background: "#111", padding: "15px", border: "1px solid #333", borderRadius: "8px" }}>
           <Text size="xs" fw={900} mb={5} c="orange" ta="center" style={{ letterSpacing: "2px" }}>
@@ -102,12 +142,7 @@ export default function App() {
         </Box>
       )}
 
-      {/* Режим настройки Wi-Fi */}
-      {isConfiguring && (
-        <SetupMode onCancel={() => setIsConfiguring(false)} canCancel={news.length > 1} />
-      )}
-
-      {/* Основной слайдер страниц */}
+      {/* Основной контейнер страниц */}
       <Box style={{ 
         display: "flex", 
         width: "300vw", 
@@ -122,12 +157,12 @@ export default function App() {
           setBrightness={setBrightness} 
           sendCmd={sendCmd} 
           updateMirror={updateMirror} 
-          onWifiSetup={startWifiSetup}
+          updatePython={updatePython}
           appVersion={appVersion} 
         />
       </Box>
 
-      {/* Индикаторы страниц (точки) */}
+      {/* Индикаторы страниц (точки внизу) */}
       <Box style={{ position: 'fixed', bottom: 30, left: '50%', transform: 'translateX(-50%)', zIndex: 100 }}>
         <div style={{ display: 'flex', gap: '10px' }}>
           {[0, 1, 2].map((i) => (
@@ -135,7 +170,7 @@ export default function App() {
               width: i === page ? 20 : 8, 
               height: 8, 
               borderRadius: 4, 
-              backgroundColor: i === page ? 'orange' : '#333',
+              backgroundColor: i === page ? 'white' : '#333',
               transition: 'all 0.3s ease'
             }} />
           ))}
