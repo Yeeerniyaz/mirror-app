@@ -17,12 +17,11 @@ export const Dashboard = ({ time, weather, sensors, news }) => (
           </Text>
         </Stack>
         
-        {/* Контейнер для календаря */}
         <Box mt="xl" style={{ opacity: 0.8, marginLeft: "-15px", width: "280px" }}>
           <Calendar
             locale="ru"
             size="sm"
-            withControls={false} // Убирает стрелки влево/вправо
+            withControls={false}
             styles={{
               calendar: { backgroundColor: "transparent", border: "none" },
               day: {
@@ -32,7 +31,6 @@ export const Dashboard = ({ time, weather, sensors, news }) => (
                 height: "35px",
                 "&[data-today]": { color: "#000", backgroundColor: "#fff", borderRadius: "50%" },
               },
-              // Полностью скрываем заголовок (название месяца и года)
               calendarHeader: { display: 'none' }, 
             }}
           />

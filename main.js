@@ -3,7 +3,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import pkg from 'electron-updater';
-
 const { autoUpdater } = pkg;
 
 const __filename = fileURLToPath(import.meta.url);
@@ -31,20 +30,29 @@ function openService(url, isTV = false) {
     });
 }
 
+// Управление запуском сервисов
 ipcMain.on('launch', (event, { data, type, isTV }) => {
     if (type === 'sys') exec(data);
     else openService(data, isTV);
 });
 
+// Управление яркостью монитора Raspberry
 ipcMain.on('set-brightness', (event, value) => {
     const b = Math.round((value / 100) * 255);
     exec(`echo ${b} | sudo tee /sys/class/backlight/*/brightness`);
 });
 
+// Системные команды: Ребут, Выключение и Wi-Fi Hotspot
 ipcMain.on('system-cmd', (event, cmd) => {
     if (cmd === 'reboot') exec('sudo reboot');
+    if (cmd === 'shutdown') exec('sudo shutdown -h now');
+    if (cmd === 'start-ap') {
+        // Команда для поднятия точки доступа на Raspberry Pi
+        exec('nmcli device wifi hotspot ssid VECTOR_MIRROR password vector123');
+    }
 });
 
+// Обновления
 ipcMain.on('check-for-updates', () => {
     if (app.isPackaged) {
         autoUpdater.checkForUpdatesAndNotify();
@@ -81,7 +89,7 @@ function createWindow() {
         webPreferences: { 
             nodeIntegration: true, 
             contextIsolation: false,
-            webSecurity: false // Важное изменение для работы с Python API
+            webSecurity: false 
         }
     });
     const url = app.isPackaged ? `file://${path.join(__dirname, 'dist/index.html')}` : 'http://localhost:5173';
