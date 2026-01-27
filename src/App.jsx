@@ -48,29 +48,36 @@ export default function App() {
   };
 
   // Обновление Python-части (Git Pull + Датчики)
-  const updatePython = async () => {
-    setUpdStatus("ОБНОВЛЕНИЕ КОДА (GIT)...");
-    try {
-      const res = await fetch("http://127.0.0.1:5005/api/system/update-python", { 
-        method: "POST" 
-      });
-      if (res.ok) {
-        setUpdStatus("КОД ОБНОВЛЕН. ПЕРЕЗАПУСК МОСТА...");
-        // Даем мосту 3 секунды на рестарт перед тем как просить новые данные
-        setTimeout(() => {
-          fetchData();
-          setUpdStatus("ДАТЧИКИ СИНХРОНИЗИРОВАНЫ");
-          setTimeout(() => setUpdStatus(""), 2000);
-        }, 3000);
-      } else {
-        setUpdStatus("ОШИБКА ОБНОВЛЕНИЯ");
-        setTimeout(() => setUpdStatus(""), 3000);
-      }
-    } catch (e) {
-      setUpdStatus("PYTHON НЕ ОТВЕЧАЕТ");
+const updatePython = async () => {
+  setUpdStatus("ОБНОВЛЕНИЕ СИСТЕМЫ..."); // Статус на экране
+  try {
+    const res = await fetch("http://127.0.0.1:5005/api/system/update-python", { 
+      method: "POST" 
+    });
+
+    if (res.ok) {
+      setUpdStatus("КОД ЗАГРУЖЕН. ПЕРЕЗАПУСК...");
+      
+      // Самое важное: Ждем 4 секунды, пока сервис поднимется
+      setTimeout(async () => {
+        try {
+          await fetchData(); // Теперь просим хук обновить датчики и новости
+          setUpdStatus("СИНХРОНИЗАЦИЯ ЗАВЕРШЕНА");
+        } catch (err) {
+          setUpdStatus("ДАТЧИКИ ЕЩЕ СПЯТ");
+        }
+        setTimeout(() => setUpdStatus(""), 2000);
+      }, 4000);
+
+    } else {
+      setUpdStatus("ОШИБКА ОБНОВЛЕНИЯ");
       setTimeout(() => setUpdStatus(""), 3000);
     }
-  };
+  } catch (e) {
+    setUpdStatus("БРИДЖ НЕ ОТВЕЧАЕТ");
+    setTimeout(() => setUpdStatus(""), 3000);
+  }
+};
 
   // Навигация клавишами
   useEffect(() => {
