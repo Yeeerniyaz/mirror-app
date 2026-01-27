@@ -12,7 +12,7 @@ const ipc = window.require ? window.require("electron").ipcRenderer : null;
 export default function App() {
   const [page, setPage] = useState(0);
   
-  // Достаем актуальные данные из нашего хука
+  // Достаем актуальные данные из нашего хука (без лишнего resetWifi)
   const { 
     time, 
     sensors, 
@@ -22,7 +22,7 @@ export default function App() {
     updProgress, 
     appVersion, 
     setUpdStatus,
-    fetchData // Функция ручного обновления данных
+    fetchData 
   } = useMirrorData();
 
   // Системные команды Electron
@@ -47,26 +47,32 @@ export default function App() {
     setTimeout(() => setUpdStatus(""), 3000);
   };
 
-  // Обновление Python-части и датчиков
+  // Обновление Python-части (Git Pull + Датчики)
   const updatePython = async () => {
-    setUpdStatus("ОБНОВЛЕНИЕ ДАТЧИКОВ...");
+    setUpdStatus("ОБНОВЛЕНИЕ КОДА (GIT)...");
     try {
       const res = await fetch("http://127.0.0.1:5005/api/system/update-python", { 
         method: "POST" 
       });
       if (res.ok) {
-        setUpdStatus("ОБНОВЛЕНО");
-        fetchData(); // Сразу запрашиваем свежие данные
+        setUpdStatus("КОД ОБНОВЛЕН. ПЕРЕЗАПУСК МОСТА...");
+        // Даем мосту 3 секунды на рестарт перед тем как просить новые данные
+        setTimeout(() => {
+          fetchData();
+          setUpdStatus("ДАТЧИКИ СИНХРОНИЗИРОВАНЫ");
+          setTimeout(() => setUpdStatus(""), 2000);
+        }, 3000);
       } else {
         setUpdStatus("ОШИБКА ОБНОВЛЕНИЯ");
+        setTimeout(() => setUpdStatus(""), 3000);
       }
     } catch (e) {
       setUpdStatus("PYTHON НЕ ОТВЕЧАЕТ");
+      setTimeout(() => setUpdStatus(""), 3000);
     }
-    setTimeout(() => setUpdStatus(""), 4000);
   };
 
-  // Навигация клавишами (для отладки на ПК или пульта)
+  // Навигация клавишами
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "ArrowRight") setPage((p) => Math.min(p + 1, 2));
@@ -84,7 +90,8 @@ export default function App() {
         width: "100vw", 
         overflow: "hidden", 
         color: "white",
-        cursor: "none" // Чистый вид без курсора
+        // ГЛАВНАЯ ФИШКА: Скрываем курсор только на 0 странице (Dashboard)
+        cursor: page === 0 ? "none" : "default" 
       }}>
 
         {/* СТРОГИЙ ИНДИКАТОР СТАТУСА */}
@@ -108,7 +115,7 @@ export default function App() {
           </Box>
         )}
 
-        {/* КОНТЕЙНЕР СЛАЙДОВ (Dash -> Hub -> Set) */}
+        {/* КОНТЕЙНЕР СЛАЙДОВ */}
         <Box style={{ 
           display: "flex", 
           width: "300vw", 
@@ -128,7 +135,7 @@ export default function App() {
           />
         </Box>
 
-        {/* МИНИМАЛИСТИЧНЫЕ ТОЧКИ ПАГИНАЦИИ */}
+        {/* ТОЧКИ ПАГИНАЦИИ */}
         <Box style={{ position: "fixed", bottom: 40, left: "50%", transform: "translateX(-50%)", zIndex: 100 }}>
           <div style={{ display: "flex", gap: "15px" }}>
             {[0, 1, 2].map((i) => (

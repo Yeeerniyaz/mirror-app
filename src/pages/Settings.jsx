@@ -102,12 +102,11 @@ export const Settings = ({
         <Box>
           <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>NETWORK & SYSTEM</Text>
           <Stack gap="xs">
-            {/* Вместо сброса — теперь параметры Wi-Fi */}
             <SettingRow 
               icon={Wifi} 
               label="Параметры Wi-Fi" 
               description="Выбор сети и управление подключением" 
-              onClick={() => alert("Сканирование доступных сетей...")}
+              onClick={() => {/* Здесь будет вызов окна списка сетей */}}
             />
             <SettingRow 
               icon={Power} 
