@@ -1,4 +1,4 @@
-import { Container, Stack, Title, Text, Group, Divider, UnstyledButton, Center, Box } from "@mantine/core";
+import { Container, Stack, Title, Text, Group, Box, UnstyledButton, Center } from "@mantine/core";
 import { RefreshCw, LogIn, LogOut, WifiOff, Power, Cpu, Settings as SettingsIcon, ChevronRight } from "lucide-react";
 
 export const Settings = ({ 
@@ -21,7 +21,8 @@ export const Settings = ({
         borderRadius: '4px', 
         backgroundColor: '#050505',
         border: '1px solid #111',
-        transition: 'background 0.2s'
+        transition: 'background 0.2s',
+        width: '100%'
       }}
       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0a0a0a'}
       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#050505'}
@@ -42,7 +43,7 @@ export const Settings = ({
               {actionLabel}
             </Text>
           )}
-          <ChevronRight size={16} color="#333" />
+          <ChevronRight size={16} color="#222" />
         </Group>
       </Group>
     </UnstyledButton>
@@ -118,7 +119,8 @@ export const Settings = ({
               icon={WifiOff} 
               label="Сброс Wi-Fi" 
               description="Удалить сеть и вернуться в Setup" 
-              onClick={() => window.confirm("RESET WI-FI?") && resetWifi()}
+              onClick={() => resetWifi()}
+              danger
             />
           </Stack>
         </Box>
@@ -152,4 +154,4 @@ export const Settings = ({
       </Stack>
     </Container>
   );
-};
+}; 

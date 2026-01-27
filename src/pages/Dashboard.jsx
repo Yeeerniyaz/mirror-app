@@ -29,7 +29,7 @@ export const Dashboard = ({ time, weather, sensors, news }) => {
     return () => clearInterval(interval);
   }, [news]);
 
-  // Защита от пустого массива (предотвращает белый экран)
+  // Защита от пустого массива новостей
   const hasNews = news && news.length > 0;
   const currentItem = hasNews 
     ? news[currentIndex] 
@@ -50,6 +50,7 @@ export const Dashboard = ({ time, weather, sensors, news }) => {
             </Text>
           </Stack>
           
+          {/* Календарь */}
           <Box mt="xl" style={{ opacity: 0.8, marginLeft: "-15px", width: "280px" }}>
             <Calendar
               locale="ru"
@@ -71,21 +72,29 @@ export const Dashboard = ({ time, weather, sensors, news }) => {
         </Stack>
 
         <Stack align="flex-end" gap="60px">
+          {/* Погода (Безопасное чтение) */}
           <Group gap="xl" align="center">
-            <Text style={{ fontSize: "100px", fontWeight: 100 }}>{weather.temp}°</Text>
+            <Text style={{ fontSize: "100px", fontWeight: 100 }}>
+              {weather?.temp !== undefined ? `${weather.temp}°` : "--°"}
+            </Text>
             <Sun size={60} strokeWidth={1} />
           </Group>
           
+          {/* Датчики (Безопасное чтение) */}
           <Stack align="flex-end" gap="35px" style={{ borderRight: "1px solid #333", paddingRight: "30px" }}>
-            <Text size="40px" fw={100}>{sensors.temp}°C</Text>
-            <Text size="40px" fw={100}>{sensors.hum}%</Text>
+            <Text size="40px" fw={100}>
+              {sensors?.temp || "--"}°C
+            </Text>
+            <Text size="40px" fw={100}>
+              {sensors?.hum || "--"}%
+            </Text>
             
             {/* КАЧЕСТВО ВОЗДУХА */}
             <Group gap="sm">
-               <Text size="28px" fw={200} c={sensors.co2 > 1000 ? "red" : "white"}>
-                 {sensors.co2} ppm
+               <Text size="28px" fw={200} c={sensors?.co2 > 1000 ? "red" : "white"}>
+                 {sensors?.co2 || "--"} ppm
                </Text>
-               <Wind size={24} color={sensors.co2 > 1000 ? "red" : "white"} />
+               <Wind size={24} color={sensors?.co2 > 1000 ? "red" : "white"} />
             </Group>
           </Stack>
         </Stack>

@@ -114,22 +114,61 @@ export function useMirrorData() {
   };
 
   const restartApplication = async () => {
-  if (!window.confirm("ПЕРЕЗАПУСТИТЬ ПРИЛОЖЕНИЕ?")) return;
+    if (!window.confirm("ПЕРЕЗАПУСТИТЬ ПРИЛОЖЕНИЕ?")) return;
 
-  setUpdStatus("РЕСТАРТ ПРИЛОЖЕНИЯ...");
-  try {
-    const res = await fetch("http://127.0.0.1:5005/api/system/restart-app", { 
-      method: "POST" 
-    });
-    if (res.ok) {
-      setUpdStatus("ПЕРЕЗАПУСК...");
-    } else {
-      setUpdStatus("ОШИБКА СЕРВЕРА");
+    setUpdStatus("РЕСТАРТ ПРИЛОЖЕНИЯ...");
+    try {
+      const res = await fetch("http://127.0.0.1:5005/api/system/restart-app", {
+        method: "POST",
+      });
+      if (res.ok) {
+        setUpdStatus("ПЕРЕЗАПУСК...");
+      } else {
+        setUpdStatus("ОШИБКА СЕРВЕРА");
+      }
+    } catch (e) {
+      setUpdStatus("БРИДЖ НЕ ОТВЕЧАЕТ");
     }
-  } catch (e) {
-    setUpdStatus("БРИДЖ НЕ ОТВЕЧАЕТ");
-  }
-};
+  };
+
+  // Добавь эти функции внутрь useMirrorData
+  const sendCmd = async (cmd) => {
+    setUpdStatus(`ВЫПОЛНЕНИЕ: ${cmd}...`);
+    try {
+      const res = await fetch(`http://127.0.0.1:5005/api/system/${cmd}`, {
+        method: "POST",
+      });
+      if (res.ok) setUpdStatus("КОМАНДА ОТПРАВЛЕНА");
+      else setUpdStatus("ОШИБКА СЕРВЕРА");
+    } catch (e) {
+      setUpdStatus("БРИДЖ НЕ ОТВЕЧАЕТ");
+    }
+  };
+
+  const updatePython = async () => {
+    setUpdStatus("ОБНОВЛЕНИЕ PYTHON...");
+    try {
+      const res = await fetch(
+        "http://127.0.0.1:5005/api/system/update-python",
+        { method: "POST" },
+      );
+      if (res.ok) setUpdStatus("PYTHON ОБНОВЛЕН");
+    } catch (e) {
+      setUpdStatus("ОШИБКА ОБНОВЛЕНИЯ");
+    }
+  };
+
+  // В САМОМ КОНЦЕ ХУКА ВЕРНИ ИХ:
+  return {
+    // ... твои старые переменные (time, sensors и т.д.)
+    sendCmd,
+    resetWifi,
+    updatePython,
+    restartApplication, // теперь она будет доступна
+    appVersion,
+    portalInfo,
+    setUpdStatus,
+  };
 
   useEffect(() => {
     const clockTimer = setInterval(() => setTime(new Date()), 1000);
