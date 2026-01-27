@@ -7,6 +7,7 @@ import { Hub } from "./pages/Hub";
 import { Settings } from "./pages/Settings";
 
 // Electron IPC (если запущен в Electron)
+// В самом верху App.jsx
 const ipc = window.require ? window.require("electron").ipcRenderer : null;
 
 export default function App() {

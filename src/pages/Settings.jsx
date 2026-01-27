@@ -9,7 +9,7 @@ export const Settings = ({
   user, 
   onLogin, 
   onLogout,
-  openWifiSettings // Принимаем чистый проп для вызова nmtui
+  openWifiSettings 
 }) => {
 
   const SettingRow = ({ icon: Icon, label, description, onClick, actionLabel, danger = false }) => (
@@ -99,9 +99,9 @@ export const Settings = ({
             <SettingRow 
               icon={Wifi} 
               label="Параметры Wi-Fi" 
-              description="Системная настройка Network Manager" 
+              description="Настройка беспроводной сети через систему" 
               onClick={openWifiSettings}
-              actionLabel="NMTUI"
+              actionLabel="SYSTEM"  /* Изменили с NMTUI на SYSTEM */
             />
             <SettingRow 
               icon={Power} 
@@ -118,9 +118,10 @@ export const Settings = ({
           <Stack gap="xs">
             <SettingRow 
               icon={Cpu} 
-              label="Синхронизация датчиков" 
-              description="Принудительный опрос Python-моста" 
+              label="Обновить ядро моста"  /* Поменяли имя с "Синхронизация датчиков" */
+              description="Перезагрузка Python-скриптов и Git pull" 
               onClick={updatePython}
+              actionLabel="REBUILD" /* Добавили кнопку действия для красоты */
             />
             <SettingRow 
               icon={RefreshCw} 

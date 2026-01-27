@@ -4,17 +4,17 @@ import { fileURLToPath } from "url";
 import { exec } from "child_process";
 import { createRequire } from "module";
 
-// --- НАСТРОЙКА ОКРУЖЕНИЯ ESM ---
+// Настройка для работы с ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
 
-// Модули, требующие CommonJS
+// Подключаем модули, которые требуют CommonJS
 const { autoUpdater } = require("electron-updater");
 
 let mainWindow;
 
-// Регистрация протокола file:// (необходимо для загрузки локальных ресурсов в ESM)
+// Регистрация привилегий для протокола file:// (важно сделать до ready)
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "file",
@@ -36,26 +36,29 @@ function createWindow() {
     width,
     height,
     fullscreen: true,
-    kiosk: true, // Режим киоска для VECTOR
-    frame: false,
+    kiosk: false,
+    frame: false, // Без рамок
     backgroundColor: "#000000",
+    alwaysOnTop: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      webSecurity: false, // Разрешаем загрузку локального index.html
+      webSecurity: false, // Снимает блокировку локальных ресурсов
     },
   });
 
   const isDev = process.env.NODE_ENV === "development";
 
-  // В AppImage путь ведет внутрь ресурсов .asar
+  // ПУТЬ К ФАЙЛАМ:
+  // В билде AppImage main.js лежит в resources/app.asar/
+  // index.html лежит в resources/app.asar/dist/
   const indexPath = isDev
     ? "http://localhost:5173"
     : path.join(__dirname, "dist", "index.html");
 
   const startUrl = isDev ? indexPath : `file://${indexPath}`;
 
-  console.log("VECTOR OS STATUS: Loading", startUrl);
+  console.log("VECTOR OS Loading:", startUrl);
   mainWindow.loadURL(startUrl);
 
   mainWindow.on("closed", () => {
@@ -63,44 +66,107 @@ function createWindow() {
   });
 }
 
-// --- IPC ЛОГИКА (Взаимодействие с React) ---
+// --- IPC ЛОГИКА (Связь с React) ---
 
-// 1. Управление курсором (Dashboard vs Settings)
+// 1. Управление курсором
 ipcMain.on("set-cursor", (event, type) => {
   if (mainWindow) {
     mainWindow.webContents.send("cursor-changed", type);
   }
 });
 
-// 2. Системный Wi-Fi (Вызов меню GNOME через DBus)
+// 2. Системный Wi-Fi (nmtui)
 ipcMain.on("open-wifi-settings", () => {
-  console.log("Запуск системных настроек Wi-Fi...");
-  // Команда для вызова настроек Wi-Fi в Ubuntu/Gnome
-  exec("gnome-control-center wifi");
-  // Если у тебя чистый Raspbian (LXDE), используй:
-  // exec('rc_gui'); или просто вызывай панель nm-connection-editor
+  console.log("!!! VECTOR OS: Запуск системных настроек в ТЕМНОЙ теме...");
+
+  // Мы принудительно выставляем GTK_THEME=Yaru-dark
+  // Это заставит окно открыться с черным фоном
+  const cmd = `
+    export DISPLAY=:0;
+    export GTK_THEME=Yaru-dark;
+    export XDG_CURRENT_DESKTOP=GNOME;
+    export XDG_RUNTIME_DIR=/run/user/$(id -u);
+    gnome-control-center wifi
+  `;
+
+  exec(cmd, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Ошибка запуска: ${error.message}`);
+      // Запасной вариант, если Yaru-dark не найден
+      exec('DISPLAY=:0 GTK_THEME=Adwaita-dark gnome-control-center wifi');
+    }
+  });
 });
 
-// 3. Системные команды (Питание)
+// 3. Питание системы
 ipcMain.on("system-cmd", (event, cmd) => {
-  console.log(`VECTOR OS: Executing ${cmd}`);
+  console.log(`System Command: ${cmd}`);
   if (cmd === "reboot") exec("sudo reboot");
   if (cmd === "shutdown") exec("sudo shutdown -h now");
 });
 
-// 4. Запуск внешних приложений
-ipcMain.on("launch", (event, { data, type, isTV }) => {
-  console.log(`VECTOR OS: Launching external ${type} content`);
+// 4. Запуск приложений (YouTube TV и др.)
+ipcMain.on("launch", (event, { data, type }) => {
+  if (type === "sys") {
+    // Запуск системных команд или скриптов
+    exec(data);
+  } else {
+    // Запуск сайтов (YouTube TV, Google Keep и т.д.) в новом окне поверх зеркала
+    let win = new BrowserWindow({
+      fullscreen: true,
+      kiosk: true,
+      frame: false,
+      backgroundColor: "#000000",
+    });
+    win.loadURL(data);
+    win.on("closed", () => {
+      win = null;
+    });
+  }
 });
 
-// --- АВТООБНОВЛЕНИЯ ---
+// --- АВТООБНОВЛЕНИЯ (Electron Updater) ---
+
+// --- Обработка обновлений ---
 
 ipcMain.on("check-for-updates", () => {
-  autoUpdater.checkForUpdatesAndNotify();
+  console.log("Кнопка нажата, режим packaged:", app.isPackaged);
+
+  if (app.isPackaged) {
+    if (mainWindow) {
+      mainWindow.webContents.send("update_status", "Поиск обновлений...");
+    }
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      if (mainWindow)
+        mainWindow.webContents.send("update_status", "Ошибка апдейтера");
+    });
+  } else {
+    if (mainWindow)
+      mainWindow.webContents.send("update_status", "Dev-mode: Ок");
+  }
+});
+
+// Слушатели для AppImage (чтобы текст менялся на экране)
+autoUpdater.on("checking-for-update", () => {
+  mainWindow?.webContents.send("update_status", "Связь с сервером...");
 });
 
 autoUpdater.on("update-available", () => {
-  mainWindow?.webContents.send("update_status", "Доступно обновление...");
+  mainWindow?.webContents.send("update_status", "Найдена новая версия!");
+});
+
+autoUpdater.on("update-not-available", () => {
+  mainWindow?.webContents.send("update_status", "У вас актуальная версия");
+  setTimeout(() => {
+    mainWindow?.webContents.send("update_status", "");
+  }, 4000);
+});
+
+autoUpdater.on("error", (err) => {
+  mainWindow?.webContents.send(
+    "update_status",
+    "Ошибка: " + err.message.substring(0, 20),
+  );
 });
 
 autoUpdater.on("download-progress", (p) => {
@@ -108,16 +174,18 @@ autoUpdater.on("download-progress", (p) => {
 });
 
 autoUpdater.on("update-downloaded", () => {
-  mainWindow?.webContents.send("update_status", "Готово к установке");
-  autoUpdater.quitAndInstall();
+  mainWindow?.webContents.send("update_status", "Готово! Перезапуск...");
+  setTimeout(() => {
+    autoUpdater.quitAndInstall();
+  }, 3000);
 });
 
-// --- ЗАПУСК ---
+// --- ЗАПУСК ПРИЛОЖЕНИЯ ---
 
 app.whenReady().then(() => {
   createWindow();
 
-  // Передача версии в React для отображения в Settings
+  // Отправляем версию приложения в React через 3 секунды после старта
   setTimeout(() => {
     if (mainWindow) {
       mainWindow.webContents.send("app-version", app.getVersion());
