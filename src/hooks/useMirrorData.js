@@ -88,23 +88,48 @@ export function useMirrorData() {
   };
 
   const resetWifi = async () => {
+    if (!window.confirm("СБРОСИТЬ НАСТРОЙКИ СЕТИ?")) return;
+
     setUpdStatus("СБРОС WI-FI...");
     try {
-      // Проверь, что порт 5005 и путь совпадает с bridge.py
       const res = await fetch("http://127.0.0.1:5005/api/system/reset-wifi", {
         method: "POST",
       });
       if (res.ok) {
-        setUpdStatus("WI-FI СБРОШЕН! РЕБУТ...");
-        setTimeout(() => ipc?.send("system-cmd", "reboot"), 2000);
+        setUpdStatus("ГОТОВО! ПЕРЕХОД К НАСТРОЙКЕ...");
+
+        // Самый важный момент для "обратного контакта":
+        // Через 2 секунды перезагружаем страницу.
+        // При загрузке App.jsx проверит портал (порт 8081),
+        // увидит, что файла флага нет, и сам откроет SetupMode.
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       } else {
-        setUpdStatus("ОШИБКА СЕРВЕРА");
+        setUpdStatus("ОШИБКА СБРОСА");
       }
     } catch (e) {
       setUpdStatus("PYTHON НЕ ОТВЕЧАЕТ");
     }
-    setTimeout(() => setUpdStatus(""), 4000);
   };
+
+  const restartApplication = async () => {
+  if (!window.confirm("ПЕРЕЗАПУСТИТЬ ПРИЛОЖЕНИЕ?")) return;
+
+  setUpdStatus("РЕСТАРТ ПРИЛОЖЕНИЯ...");
+  try {
+    const res = await fetch("http://127.0.0.1:5005/api/system/restart-app", { 
+      method: "POST" 
+    });
+    if (res.ok) {
+      setUpdStatus("ПЕРЕЗАПУСК...");
+    } else {
+      setUpdStatus("ОШИБКА СЕРВЕРА");
+    }
+  } catch (e) {
+    setUpdStatus("БРИДЖ НЕ ОТВЕЧАЕТ");
+  }
+};
 
   useEffect(() => {
     const clockTimer = setInterval(() => setTime(new Date()), 1000);

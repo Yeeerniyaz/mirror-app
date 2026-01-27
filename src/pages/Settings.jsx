@@ -1,122 +1,155 @@
-import { Container, Stack, Title, SimpleGrid, Text, ActionIcon, Center, UnstyledButton, Group } from "@mantine/core";
-import { RefreshCw, WifiOff } from "lucide-react";
+import { Container, Stack, Title, Text, Group, Divider, UnstyledButton, Center, Box } from "@mantine/core";
+import { RefreshCw, LogIn, LogOut, WifiOff, Power, Cpu, Settings as SettingsIcon, ChevronRight } from "lucide-react";
 
 export const Settings = ({ 
   sendCmd, 
   updateMirror, 
   updatePython, 
   resetWifi, 
-  appVersion 
-}) => (
-  <Container
-    fluid
-    p="100px"
-    style={{ width: "100vw", height: "100vh", position: "relative" }}
-  >
-    <Stack gap="80px">
-      <Title
-        order={2}
-        style={{
-          fontSize: "40px",
-          fontWeight: 100,
-          letterSpacing: "15px",
-        }}
-      >
-        SETTINGS
-      </Title>
+  appVersion,
+  user, 
+  onLogin, 
+  onLogout 
+}) => {
 
-      <SimpleGrid cols={2} spacing="150px">
-        {/* Перезагрузка */}
-        <Stack gap="xl">
-          <Text fw={900} size="sm" style={{ letterSpacing: "4px" }}>
-            SYSTEM REBOOT
-          </Text>
-          <ActionIcon
-            size="100px"
-            variant="outline"
-            color="red"
-            onClick={() => sendCmd("reboot")}
-            style={{ border: "1px solid #ff0000" }}
-          >
-            <RefreshCw size={40} />
-          </ActionIcon>
-        </Stack>
-
-        {/* Сброс Wi-Fi */}
-        <Stack gap="xl">
-          <Text fw={900} size="sm" style={{ letterSpacing: "4px" }}>
-            RESET NETWORK
-          </Text>
-          <ActionIcon
-            size="100px"
-            variant="outline"
-            color="red"
-            onClick={() => {
-              if (window.confirm("RESET WI-FI SETTINGS?")) {
-                resetWifi();
-              }
-            }}
-            style={{ border: "1px solid #ff0000" }}
-          >
-            <WifiOff size={40} />
-          </ActionIcon>
-        </Stack>
-      </SimpleGrid>
-
-      <SimpleGrid cols={2} spacing="150px">
-        {/* Обновление Python (Датчики) */}
-        <Stack gap="xl">
-          <Text fw={900} size="sm" style={{ letterSpacing: "4px" }}>
-            UPDATE SENSORS
-          </Text>
-          <ActionIcon
-            size="100px"
-            variant="outline"
-            color="orange"
-            onClick={updatePython}
-            style={{ border: "1px solid #ffa500" }}
-          >
-            <RefreshCw size={40} color="#ffa500" />
-          </ActionIcon>
-        </Stack>
-      </SimpleGrid>
-
-      <Center mt="50px">
-        <UnstyledButton
-          onClick={updateMirror}
-          style={{
-            borderBottom: "2px solid #ff0000",
-            padding: "15px 50px",
-          }}
-        >
-          <Group gap="xl">
-            <RefreshCw size={25} color="#ff0000" />
-            <Text
-              fw={900}
-              c="red"
-              size="md"
-              style={{ letterSpacing: "6px" }}
-            >
-              FORCE UPDATE VECTOR MIRROR
+  // Компонент для компактной строки настройки
+  const SettingRow = ({ icon: Icon, label, description, onClick, actionLabel, danger = false }) => (
+    <UnstyledButton 
+      onClick={onClick} 
+      style={{ 
+        padding: '16px 20px', 
+        borderRadius: '4px', 
+        backgroundColor: '#050505',
+        border: '1px solid #111',
+        transition: 'background 0.2s'
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0a0a0a'}
+      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#050505'}
+    >
+      <Group justify="space-between" wrap="nowrap">
+        <Group gap="xl">
+          <Icon size={20} color={danger ? "#ff4444" : "white"} strokeWidth={1.5} />
+          <Stack gap={0}>
+            <Text fw={700} size="sm" c="white" style={{ letterSpacing: '1px' }}>
+              {label.toUpperCase()}
             </Text>
-          </Group>
-        </UnstyledButton>
-      </Center>
-    </Stack>
+            <Text size="xs" c="dimmed">{description}</Text>
+          </Stack>
+        </Group>
+        <Group gap="xs">
+          {actionLabel && (
+            <Text size="xs" fw={800} c={danger ? "red" : "white"} style={{ letterSpacing: '1px' }}>
+              {actionLabel}
+            </Text>
+          )}
+          <ChevronRight size={16} color="#333" />
+        </Group>
+      </Group>
+    </UnstyledButton>
+  );
 
-    <Text
-      size="xs"
-      fw={700}
-      c="dimmed"
-      style={{
-        letterSpacing: "3px",
-        opacity: 0.3,
-        position: "absolute",
-        bottom: "40px",
-        right: "70px",
+  return (
+    <Container
+      fluid
+      p="60px"
+      style={{ 
+        width: "100vw", 
+        height: "100vh", 
+        backgroundColor: "#000", 
+        color: "#fff", 
+        overflow: 'hidden' 
       }}
     >
-      VECTOR OS v{appVersion}
-    </Text>
-  </Container>
-);
+      <Stack gap="xl" style={{ maxWidth: '700px', margin: '0 auto' }}>
+        
+        {/* Заголовок */}
+        <Group justify="space-between" mb="30px">
+          <Stack gap={0}>
+            <Title order={2} style={{ fontSize: '24px', fontWeight: 200, letterSpacing: '10px', textTransform: 'uppercase' }}>
+              Configuration
+            </Title>
+            <Text size="xs" c="dimmed" style={{ letterSpacing: '3px' }}>VECTOR OS TERMINAL</Text>
+          </Stack>
+          <SettingsIcon size={24} opacity={0.2} />
+        </Group>
+
+        {/* Секция: Аккаунт */}
+        <Box>
+          <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>PROFILE</Text>
+          <Stack gap="xs">
+            {user ? (
+              <SettingRow 
+                icon={LogOut} 
+                label={user.name} 
+                description="Управление текущей сессией" 
+                actionLabel="ВЫЙТИ" 
+                onClick={onLogout}
+                danger
+              />
+            ) : (
+              <SettingRow 
+                icon={LogIn} 
+                label="Войти в аккаунт" 
+                description="Синхронизация данных зеркала" 
+                actionLabel="AUTH" 
+                onClick={onLogin}
+              />
+            )}
+          </Stack>
+        </Box>
+
+        {/* Секция: Система */}
+        <Box>
+          <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>SYSTEM & POWER</Text>
+          <Stack gap="xs">
+            <SettingRow 
+              icon={RefreshCw} 
+              label="Перезапуск приложения" 
+              description="Только интерфейс (быстро)" 
+              onClick={() => sendCmd("restart-app")}
+            />
+            <SettingRow 
+              icon={Power} 
+              label="Перезагрузка системы" 
+              description="Полный рестарт Raspberry Pi" 
+              onClick={() => window.confirm("REBOOT SYSTEM?") && sendCmd("reboot")}
+            />
+            <SettingRow 
+              icon={WifiOff} 
+              label="Сброс Wi-Fi" 
+              description="Удалить сеть и вернуться в Setup" 
+              onClick={() => window.confirm("RESET WI-FI?") && resetWifi()}
+            />
+          </Stack>
+        </Box>
+
+        {/* Секция: Обновления */}
+        <Box>
+          <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>MAINTENANCE</Text>
+          <Stack gap="xs">
+            <SettingRow 
+              icon={Cpu} 
+              label="Обновить датчики" 
+              description="Перезапуск Python-моста" 
+              onClick={updatePython}
+            />
+            <SettingRow 
+              icon={RefreshCw} 
+              label="Проверить обновления" 
+              description={`Версия: ${appVersion}`} 
+              onClick={updateMirror}
+            />
+          </Stack>
+        </Box>
+
+        {/* Футер */}
+        <Center mt="xl">
+          <Text size="xs" style={{ letterSpacing: '4px', color: '#222', fontWeight: 700 }}>
+            REV_{appVersion.replace(/\./g, '_')} // YEEE.KZ
+          </Text>
+        </Center>
+
+      </Stack>
+    </Container>
+  );
+};
