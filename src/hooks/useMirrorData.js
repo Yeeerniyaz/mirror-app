@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 
-const WEATHER_API =
-  "https://api.open-meteo.com/v1/forecast?latitude=43.2389&longitude=76.8897&current_weather=true";
+const WEATHER_API = "https://api.open-meteo.com/v1/forecast?latitude=43.2389&longitude=76.8897&current_weather=true";
 const SENSORS_API = "http://127.0.0.1:5005/api/sensors";
 const RSS_API = "https://api.rss2json.com/v1/api.json?rss_url=";
+
+// Проверка наличия Electron
 const ipc = window.require ? window.require("electron").ipcRenderer : null;
 
 export function useMirrorData() {
+  // --- СОСТОЯНИЕ (STATE) ---
   const [time, setTime] = useState(new Date());
   const [sensors, setSensors] = useState({ temp: "--", hum: "--", co2: "--" });
   const [weather, setWeather] = useState({ temp: "--", code: 0 });
@@ -14,31 +16,26 @@ export function useMirrorData() {
   const [updStatus, setUpdStatus] = useState("");
   const [updProgress, setUpdProgress] = useState(0);
   const [appVersion, setAppVersion] = useState("N/A");
-  const [portalInfo, setPortalInfo] = useState({
-    ip: "10.42.0.1",
-    port: 8081,
-    needs_setup: false,
-  });
+  
+  // Хранилище для списка Wi-Fi сетей
+  const [wifiList, setWifiList] = useState([]);
 
+  // --- ЛОГИКА ЗАГРУЗКИ ДАННЫХ ---
   const fetchData = async () => {
     try {
       const results = await Promise.allSettled([
         fetch(`${RSS_API}https://tengrinews.kz/news.rss`).then((r) => r.json()),
-        fetch(`${RSS_API}https://www.zakon.kz/rss/news.xml`).then((r) =>
-          r.json(),
-        ),
+        fetch(`${RSS_API}https://www.zakon.kz/rss/news.xml`).then((r) => r.json()),
         fetch(`${RSS_API}https://www.nur.kz/rss/all.xml`).then((r) => r.json()),
         fetch(WEATHER_API).then((r) => r.json()),
         fetch(SENSORS_API).then((r) => r.json()),
       ]);
 
+      // Обработка новостей
       let combinedNews = [];
       const sources = ["TENGRI NEWS", "ZAKON.KZ", "NUR.KZ"];
       [0, 1, 2].forEach((index) => {
-        if (
-          results[index].status === "fulfilled" &&
-          results[index].value?.items
-        ) {
+        if (results[index].status === "fulfilled" && results[index].value?.items) {
           results[index].value.items.forEach((item) => {
             combinedNews.push({
               title: item.title,
@@ -50,19 +47,18 @@ export function useMirrorData() {
       });
 
       if (combinedNews.length > 0) {
-        setNews(
-          combinedNews.sort((a, b) => new Date(b.date) - new Date(a.date)),
-        );
+        setNews(combinedNews.sort((a, b) => new Date(b.date) - new Date(a.date)));
       }
-      if (
-        results[3].status === "fulfilled" &&
-        results[3].value?.current_weather
-      ) {
+
+      // Обработка погоды
+      if (results[3].status === "fulfilled" && results[3].value?.current_weather) {
         setWeather({
           temp: Math.round(results[3].value.current_weather.temperature),
           code: results[3].value.current_weather.weathercode,
         });
       }
+
+      // Обработка датчиков
       if (results[4].status === "fulfilled" && results[4].value) {
         setSensors({
           temp: results[4].value.temp || "--",
@@ -75,107 +71,81 @@ export function useMirrorData() {
     }
   };
 
-  const checkPortalStatus = async () => {
+  // --- ПАРАМЕТРЫ WIFI ---
+
+  const getWifiList = async () => {
+    setUpdStatus("СКАНИРОВАНИЕ WI-FI...");
     try {
-      const res = await fetch("http://127.0.0.1:8081/status");
+      const res = await fetch("http://127.0.0.1:5005/api/wifi/list");
       const data = await res.json();
-      if (JSON.stringify(data) !== JSON.stringify(portalInfo))
-        setPortalInfo(data);
-      if (!data.needs_setup && news.length === 0) fetchData();
-    } catch (e) {
-      /* Portal offline */
-    }
-  };
-
-  const resetWifi = async () => {
-    if (!window.confirm("СБРОСИТЬ НАСТРОЙКИ СЕТИ?")) return;
-
-    setUpdStatus("СБРОС WI-FI...");
-    try {
-      const res = await fetch("http://127.0.0.1:5005/api/system/reset-wifi", {
-        method: "POST",
-      });
       if (res.ok) {
-        setUpdStatus("ГОТОВО! ПЕРЕХОД К НАСТРОЙКЕ...");
-
-        // Самый важный момент для "обратного контакта":
-        // Через 2 секунды перезагружаем страницу.
-        // При загрузке App.jsx проверит портал (порт 8081),
-        // увидит, что файла флага нет, и сам откроет SetupMode.
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+        setWifiList(data);
+        setUpdStatus("СПИСОК ОБНОВЛЕН");
       } else {
-        setUpdStatus("ОШИБКА СБРОСА");
-      }
-    } catch (e) {
-      setUpdStatus("PYTHON НЕ ОТВЕЧАЕТ");
-    }
-  };
-
-  const restartApplication = async () => {
-    if (!window.confirm("ПЕРЕЗАПУСТИТЬ ПРИЛОЖЕНИЕ?")) return;
-
-    setUpdStatus("РЕСТАРТ ПРИЛОЖЕНИЯ...");
-    try {
-      const res = await fetch("http://127.0.0.1:5005/api/system/restart-app", {
-        method: "POST",
-      });
-      if (res.ok) {
-        setUpdStatus("ПЕРЕЗАПУСК...");
-      } else {
-        setUpdStatus("ОШИБКА СЕРВЕРА");
+        setUpdStatus("ОШИБКА СКАНЕРА");
       }
     } catch (e) {
       setUpdStatus("БРИДЖ НЕ ОТВЕЧАЕТ");
     }
+    setTimeout(() => setUpdStatus(""), 3000);
   };
 
-  // Добавь эти функции внутрь useMirrorData
-  const sendCmd = async (cmd) => {
-    setUpdStatus(`ВЫПОЛНЕНИЕ: ${cmd}...`);
+  const connectToWifi = async (ssid, password) => {
+    setUpdStatus(`ПОДКЛЮЧЕНИЕ К ${ssid}...`);
     try {
-      const res = await fetch(`http://127.0.0.1:5005/api/system/${cmd}`, {
+      const res = await fetch("http://127.0.0.1:5005/api/wifi/connect", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ssid, password })
       });
+      if (res.ok) {
+        setUpdStatus("УСПЕШНО ПОДКЛЮЧЕНО");
+        fetchData(); // Пробуем обновить данные через новый инет
+      } else {
+        setUpdStatus("ОШИБКА ПАРОЛЯ");
+      }
+    } catch (e) {
+      setUpdStatus("СЕРВЕР НЕ ОТВЕЧАЕТ");
+    }
+    setTimeout(() => setUpdStatus(""), 4000);
+  };
+
+  // --- СИСТЕМНЫЕ ФУНКЦИИ ---
+
+  const sendCmd = async (cmd) => {
+    setUpdStatus(`ВЫПОЛНЕНИЕ: ${cmd.toUpperCase()}...`);
+    try {
+      const res = await fetch(`http://127.0.0.1:5005/api/system/${cmd}`, { method: "POST" });
       if (res.ok) setUpdStatus("КОМАНДА ОТПРАВЛЕНА");
       else setUpdStatus("ОШИБКА СЕРВЕРА");
     } catch (e) {
       setUpdStatus("БРИДЖ НЕ ОТВЕЧАЕТ");
     }
+    setTimeout(() => setUpdStatus(""), 3000);
   };
 
   const updatePython = async () => {
     setUpdStatus("ОБНОВЛЕНИЕ PYTHON...");
     try {
-      const res = await fetch(
-        "http://127.0.0.1:5005/api/system/update-python",
-        { method: "POST" },
-      );
-      if (res.ok) setUpdStatus("PYTHON ОБНОВЛЕН");
+      const res = await fetch("http://127.0.0.1:5005/api/system/update-python", { method: "POST" });
+      if (res.ok) {
+        setUpdStatus("PYTHON ОБНОВЛЕН");
+        fetchData();
+      } else {
+        setUpdStatus("ОШИБКА ОБНОВЛЕНИЯ");
+      }
     } catch (e) {
-      setUpdStatus("ОШИБКА ОБНОВЛЕНИЯ");
+      setUpdStatus("БРИДЖ НЕ ОТВЕЧАЕТ");
     }
+    setTimeout(() => setUpdStatus(""), 4000);
   };
 
-  // В САМОМ КОНЦЕ ХУКА ВЕРНИ ИХ:
-  return {
-    // ... твои старые переменные (time, sensors и т.д.)
-    sendCmd,
-    resetWifi,
-    updatePython,
-    restartApplication, // теперь она будет доступна
-    appVersion,
-    portalInfo,
-    setUpdStatus,
-  };
-
+  // --- ЭФФЕКТЫ ---
   useEffect(() => {
     const clockTimer = setInterval(() => setTime(new Date()), 1000);
-    const dataTimer = setInterval(fetchData, 60000);
-    const portalTimer = setInterval(checkPortalStatus, 3000);
+    const dataTimer = setInterval(fetchData, 60000); 
 
-    fetchData();
+    fetchData(); 
 
     if (ipc) {
       ipc.on("update_status", (e, m) => setUpdStatus(m));
@@ -187,13 +157,13 @@ export function useMirrorData() {
     return () => {
       clearInterval(clockTimer);
       clearInterval(dataTimer);
-      clearInterval(portalTimer);
       ipc?.removeAllListeners("update_status");
       ipc?.removeAllListeners("update_progress");
       ipc?.removeAllListeners("app-version");
     };
   }, []);
 
+  // --- ФИНАЛЬНЫЙ ВОЗВРАТ ---
   return {
     time,
     sensors,
@@ -202,8 +172,12 @@ export function useMirrorData() {
     updStatus,
     updProgress,
     appVersion,
-    portalInfo,
+    wifiList,        // Список сетей для UI
+    getWifiList,     // Функция сканирования
+    connectToWifi,   // Функция подключения
     setUpdStatus,
-    resetWifi,
+    sendCmd,
+    updatePython,
+    fetchData
   };
 }

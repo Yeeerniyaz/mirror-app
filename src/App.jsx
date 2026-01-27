@@ -1,19 +1,18 @@
 import { useState, useEffect } from "react";
-import { Box, Progress, Text } from "@mantine/core";
+import { Box, Progress, Text, MantineProvider } from "@mantine/core";
 import { useMirrorData } from "./hooks/useMirrorData";
 
 import { Dashboard } from "./pages/Dashboard";
 import { Hub } from "./pages/Hub";
 import { Settings } from "./pages/Settings";
-import { SetupMode } from "./pages/SetupMode";
 
+// Electron IPC (если запущен в Electron)
 const ipc = window.require ? window.require("electron").ipcRenderer : null;
 
 export default function App() {
   const [page, setPage] = useState(0);
-  const [brightness, setBrightness] = useState(100);
   
-  // Достаем resetWifi из нашего хука
+  // Достаем актуальные данные из нашего хука
   const { 
     time, 
     sensors, 
@@ -22,26 +21,52 @@ export default function App() {
     updStatus, 
     updProgress, 
     appVersion, 
-    portalInfo, 
     setUpdStatus,
-    resetWifi 
+    fetchData // Функция ручного обновления данных
   } = useMirrorData();
 
-  const isConfiguring = portalInfo.needs_setup;
-
+  // Системные команды Electron
   const launch = (data, type, isTV = false) => ipc?.send("launch", { data, type, isTV });
-  const sendCmd = (cmd) => ipc?.send("system-cmd", cmd);
   const updateMirror = () => ipc?.send("check-for-updates");
 
+  // Универсальная функция отправки команд на Python-бэкенд (5005)
+  const sendCmd = async (endpoint) => {
+    setUpdStatus(`ВЫПОЛНЕНИЕ: ${endpoint.toUpperCase()}...`);
+    try {
+      const res = await fetch(`http://127.0.0.1:5005/api/system/${endpoint}`, { 
+        method: "POST" 
+      });
+      if (res.ok) {
+        setUpdStatus("УСПЕШНО");
+      } else {
+        setUpdStatus("ОШИБКА СЕРВЕРА");
+      }
+    } catch (e) {
+      setUpdStatus("СВЯЗЬ ПОТЕРЯНА");
+    }
+    setTimeout(() => setUpdStatus(""), 3000);
+  };
+
+  // Обновление Python-части и датчиков
   const updatePython = async () => {
     setUpdStatus("ОБНОВЛЕНИЕ ДАТЧИКОВ...");
     try {
-      const res = await fetch("http://127.0.0.1:5005/api/system/update-python", { method: "POST" });
-      setUpdStatus(res.ok ? "PYTHON ОБНОВЛЕН!" : "ОШИБКА СЕРВЕРА");
-    } catch (e) { setUpdStatus("PYTHON НЕ ОТВЕЧАЕТ"); }
+      const res = await fetch("http://127.0.0.1:5005/api/system/update-python", { 
+        method: "POST" 
+      });
+      if (res.ok) {
+        setUpdStatus("ОБНОВЛЕНО");
+        fetchData(); // Сразу запрашиваем свежие данные
+      } else {
+        setUpdStatus("ОШИБКА ОБНОВЛЕНИЯ");
+      }
+    } catch (e) {
+      setUpdStatus("PYTHON НЕ ОТВЕЧАЕТ");
+    }
     setTimeout(() => setUpdStatus(""), 4000);
   };
 
+  // Навигация клавишами (для отладки на ПК или пульта)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "ArrowRight") setPage((p) => Math.min(p + 1, 2));
@@ -52,39 +77,74 @@ export default function App() {
   }, []);
 
   return (
-    <Box style={{ backgroundColor: "#000", height: "100vh", width: "100vw", overflow: "hidden", color: "white" }}>
-      {isConfiguring && <SetupMode sensors={sensors} portalInfo={portalInfo} />}
+    <MantineProvider defaultColorScheme="dark">
+      <Box style={{ 
+        backgroundColor: "#000", 
+        height: "100vh", 
+        width: "100vw", 
+        overflow: "hidden", 
+        color: "white",
+        cursor: "none" // Чистый вид без курсора
+      }}>
 
-      {updStatus && (
-        <Box style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", zIndex: 10000, width: 350, background: "#111", padding: "15px", border: "1px solid #333", borderRadius: "8px" }}>
-          <Text size="xs" fw={900} mb={5} c="orange" ta="center" style={{ letterSpacing: "2px" }}>{updStatus.toUpperCase()}</Text>
-          <Progress value={updProgress} color="orange" size="sm" animated />
+        {/* СТРОГИЙ ИНДИКАТОР СТАТУСА */}
+        {updStatus && (
+          <Box style={{ 
+            position: "fixed", 
+            top: 40, 
+            left: "50%", 
+            transform: "translateX(-50%)", 
+            zIndex: 10000, 
+            width: 320, 
+            background: "rgba(5,5,5,0.95)", 
+            padding: "20px", 
+            border: "1px solid #111", 
+            borderRadius: "4px" 
+          }}>
+            <Text size="xs" fw={900} mb={updProgress > 0 ? 10 : 0} ta="center" style={{ letterSpacing: "3px" }}>
+              {updStatus.toUpperCase()}
+            </Text>
+            {updProgress > 0 && <Progress value={updProgress} color="white" size="xs" animated />}
+          </Box>
+        )}
+
+        {/* КОНТЕЙНЕР СЛАЙДОВ (Dash -> Hub -> Set) */}
+        <Box style={{ 
+          display: "flex", 
+          width: "300vw", 
+          height: "100vh", 
+          transition: "transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)", 
+          transform: `translateX(-${page * 100}vw)` 
+        }}>
+          <Dashboard time={time} weather={weather} sensors={sensors} news={news} />
+          
+          <Hub launch={launch} />
+          
+          <Settings 
+            sendCmd={sendCmd} 
+            updateMirror={updateMirror} 
+            updatePython={updatePython} 
+            appVersion={appVersion} 
+          />
         </Box>
-      )}
 
-      <Box style={{ display: isConfiguring ? "none" : "flex", width: "300vw", height: "100vh", transition: "transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)", transform: `translateX(-${page * 100}vw)` }}>
-        <Dashboard time={time} weather={weather} sensors={sensors} news={news} />
-        <Hub launch={launch} />
-        <Settings 
-          brightness={brightness} 
-          setBrightness={setBrightness} 
-          sendCmd={sendCmd} 
-          updateMirror={updateMirror} 
-          updatePython={updatePython} 
-          resetWifi={resetWifi} 
-          appVersion={appVersion} 
-        />
-      </Box>
-
-      {!isConfiguring && (
-        <Box style={{ position: "fixed", bottom: 30, left: "50%", transform: "translateX(-50%)", zIndex: 100 }}>
-          <div style={{ display: "flex", gap: "10px" }}>
+        {/* МИНИМАЛИСТИЧНЫЕ ТОЧКИ ПАГИНАЦИИ */}
+        <Box style={{ position: "fixed", bottom: 40, left: "50%", transform: "translateX(-50%)", zIndex: 100 }}>
+          <div style={{ display: "flex", gap: "15px" }}>
             {[0, 1, 2].map((i) => (
-              <Box key={i} style={{ width: i === page ? 20 : 8, height: 8, borderRadius: 4, backgroundColor: i === page ? "white" : "#333", transition: "all 0.3s ease" }} />
+              <Box key={i} style={{ 
+                width: i === page ? 25 : 8, 
+                height: 8, 
+                borderRadius: 4, 
+                backgroundColor: i === page ? "white" : "#111", 
+                border: i === page ? "none" : "1px solid #222",
+                transition: "all 0.4s ease" 
+              }} />
             ))}
           </div>
         </Box>
-      )}
-    </Box>
+
+      </Box>
+    </MantineProvider>
   );
 }

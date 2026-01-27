@@ -1,18 +1,17 @@
 import { Container, Stack, Title, Text, Group, Box, UnstyledButton, Center } from "@mantine/core";
-import { RefreshCw, LogIn, LogOut, WifiOff, Power, Cpu, Settings as SettingsIcon, ChevronRight } from "lucide-react";
+import { RefreshCw, LogIn, LogOut, Power, Cpu, Settings as SettingsIcon, ChevronRight, Wifi } from "lucide-react";
 
 export const Settings = ({ 
   sendCmd, 
   updateMirror, 
   updatePython, 
-  resetWifi, 
   appVersion,
   user, 
   onLogin, 
   onLogout 
 }) => {
 
-  // Компонент для компактной строки настройки
+  // Универсальный компонент строки настройки в стиле VECTOR
   const SettingRow = ({ icon: Icon, label, description, onClick, actionLabel, danger = false }) => (
     <UnstyledButton 
       onClick={onClick} 
@@ -63,7 +62,7 @@ export const Settings = ({
     >
       <Stack gap="xl" style={{ maxWidth: '700px', margin: '0 auto' }}>
         
-        {/* Заголовок */}
+        {/* Хедер терминала */}
         <Group justify="space-between" mb="30px">
           <Stack gap={0}>
             <Title order={2} style={{ fontSize: '24px', fontWeight: 200, letterSpacing: '10px', textTransform: 'uppercase' }}>
@@ -74,7 +73,7 @@ export const Settings = ({
           <SettingsIcon size={24} opacity={0.2} />
         </Group>
 
-        {/* Секция: Аккаунт */}
+        {/* PROFILE SECTION */}
         <Box>
           <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>PROFILE</Text>
           <Stack gap="xs">
@@ -82,7 +81,7 @@ export const Settings = ({
               <SettingRow 
                 icon={LogOut} 
                 label={user.name} 
-                description="Управление текущей сессией" 
+                description="Управление сессией пользователя" 
                 actionLabel="ВЫЙТИ" 
                 onClick={onLogout}
                 danger
@@ -90,8 +89,8 @@ export const Settings = ({
             ) : (
               <SettingRow 
                 icon={LogIn} 
-                label="Войти в аккаунт" 
-                description="Синхронизация данных зеркала" 
+                label="Авторизация" 
+                description="Синхронизация профиля" 
                 actionLabel="AUTH" 
                 onClick={onLogin}
               />
@@ -99,52 +98,46 @@ export const Settings = ({
           </Stack>
         </Box>
 
-        {/* Секция: Система */}
+        {/* NETWORK & SYSTEM SECTION */}
         <Box>
-          <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>SYSTEM & POWER</Text>
+          <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>NETWORK & SYSTEM</Text>
           <Stack gap="xs">
+            {/* Вместо сброса — теперь параметры Wi-Fi */}
             <SettingRow 
-              icon={RefreshCw} 
-              label="Перезапуск приложения" 
-              description="Только интерфейс (быстро)" 
-              onClick={() => sendCmd("restart-app")}
+              icon={Wifi} 
+              label="Параметры Wi-Fi" 
+              description="Выбор сети и управление подключением" 
+              onClick={() => alert("Сканирование доступных сетей...")}
             />
             <SettingRow 
               icon={Power} 
-              label="Перезагрузка системы" 
-              description="Полный рестарт Raspberry Pi" 
+              label="Рестарт системы" 
+              description="Полная перезагрузка Raspberry Pi" 
               onClick={() => window.confirm("REBOOT SYSTEM?") && sendCmd("reboot")}
-            />
-            <SettingRow 
-              icon={WifiOff} 
-              label="Сброс Wi-Fi" 
-              description="Удалить сеть и вернуться в Setup" 
-              onClick={() => resetWifi()}
-              danger
             />
           </Stack>
         </Box>
 
-        {/* Секция: Обновления */}
+        {/* MAINTENANCE SECTION */}
         <Box>
           <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>MAINTENANCE</Text>
           <Stack gap="xs">
             <SettingRow 
               icon={Cpu} 
-              label="Обновить датчики" 
-              description="Перезапуск Python-моста" 
+              label="Синхронизация датчиков" 
+              description="Принудительный опрос Python-моста" 
               onClick={updatePython}
             />
             <SettingRow 
               icon={RefreshCw} 
-              label="Проверить обновления" 
-              description={`Версия: ${appVersion}`} 
+              label="Обновление системы" 
+              description={`Текущая ревизия: ${appVersion}`} 
               onClick={updateMirror}
             />
           </Stack>
         </Box>
 
-        {/* Футер */}
+        {/* Копирайт терминала */}
         <Center mt="xl">
           <Text size="xs" style={{ letterSpacing: '4px', color: '#222', fontWeight: 700 }}>
             REV_{appVersion.replace(/\./g, '_')} // YEEE.KZ
@@ -154,4 +147,4 @@ export const Settings = ({
       </Stack>
     </Container>
   );
-}; 
+};
