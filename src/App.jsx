@@ -11,21 +11,22 @@ const ipc = window.require ? window.require("electron").ipcRenderer : null;
 
 export default function App() {
   const [page, setPage] = useState(0);
-  
-  // Достаем актуальные данные из нашего хука (без лишнего resetWifi)
-  const { 
-    time, 
-    sensors, 
-    weather, 
-    news, 
-    updStatus, 
-    updProgress, 
-    appVersion, 
+
+  // Оставляем в хуке только то, что реально нужно для работы зеркала
+  const {
+    time,
+    sensors,
+    weather,
+    news,
+    updStatus,
+    updProgress,
+    appVersion,
     setUpdStatus,
-    fetchData 
+    fetchData,
   } = useMirrorData();
 
   // Системные команды Electron
+  const openWifiSettings = () => ipc?.send("open-wifi-settings");
   const launch = (data, type, isTV = false) => ipc?.send("launch", { data, type, isTV });
   const updateMirror = () => ipc?.send("check-for-updates");
 
@@ -33,8 +34,8 @@ export default function App() {
   const sendCmd = async (endpoint) => {
     setUpdStatus(`ВЫПОЛНЕНИЕ: ${endpoint.toUpperCase()}...`);
     try {
-      const res = await fetch(`http://127.0.0.1:5005/api/system/${endpoint}`, { 
-        method: "POST" 
+      const res = await fetch(`http://127.0.0.1:5005/api/system/${endpoint}`, {
+        method: "POST",
       });
       if (res.ok) {
         setUpdStatus("УСПЕШНО");
@@ -47,39 +48,38 @@ export default function App() {
     setTimeout(() => setUpdStatus(""), 3000);
   };
 
-  // Обновление Python-части (Git Pull + Датчики)
-const updatePython = async () => {
-  setUpdStatus("ОБНОВЛЕНИЕ СИСТЕМЫ..."); // Статус на экране
-  try {
-    const res = await fetch("http://127.0.0.1:5005/api/system/update-python", { 
-      method: "POST" 
-    });
+  // Обновление Python-части (Git Pull + Перезапуск моста)
+  const updatePython = async () => {
+    setUpdStatus("ОБНОВЛЕНИЕ СИСТЕМЫ...");
+    try {
+      const res = await fetch("http://127.0.0.1:5005/api/system/update-python", {
+        method: "POST",
+      });
 
-    if (res.ok) {
-      setUpdStatus("КОД ЗАГРУЖЕН. ПЕРЕЗАПУСК...");
-      
-      // Самое важное: Ждем 4 секунды, пока сервис поднимется
-      setTimeout(async () => {
-        try {
-          await fetchData(); // Теперь просим хук обновить датчики и новости
-          setUpdStatus("СИНХРОНИЗАЦИЯ ЗАВЕРШЕНА");
-        } catch (err) {
-          setUpdStatus("ДАТЧИКИ ЕЩЕ СПЯТ");
-        }
-        setTimeout(() => setUpdStatus(""), 2000);
-      }, 4000);
-
-    } else {
-      setUpdStatus("ОШИБКА ОБНОВЛЕНИЯ");
+      if (res.ok) {
+        setUpdStatus("КОД ЗАГРУЖЕН. ПЕРЕЗАПУСК...");
+        
+        // Ждем 4 секунды, пока bridge.py проснется после перезагрузки
+        setTimeout(async () => {
+          try {
+            await fetchData();
+            setUpdStatus("СИНХРОНИЗАЦИЯ ЗАВЕРШЕНА");
+          } catch (err) {
+            setUpdStatus("ДАТЧИКИ ЕЩЕ СПЯТ");
+          }
+          setTimeout(() => setUpdStatus(""), 2000);
+        }, 4000);
+      } else {
+        setUpdStatus("ОШИБКА ОБНОВЛЕНИЯ");
+        setTimeout(() => setUpdStatus(""), 3000);
+      }
+    } catch (e) {
+      setUpdStatus("БРИДЖ НЕ ОТВЕЧАЕТ");
       setTimeout(() => setUpdStatus(""), 3000);
     }
-  } catch (e) {
-    setUpdStatus("БРИДЖ НЕ ОТВЕЧАЕТ");
-    setTimeout(() => setUpdStatus(""), 3000);
-  }
-};
+  };
 
-  // Навигация клавишами
+  // Навигация клавишами ArrowRight / ArrowLeft
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "ArrowRight") setPage((p) => Math.min(p + 1, 2));
@@ -91,54 +91,60 @@ const updatePython = async () => {
 
   return (
     <MantineProvider defaultColorScheme="dark">
-      <Box style={{ 
-        backgroundColor: "#000", 
-        height: "100vh", 
-        width: "100vw", 
-        overflow: "hidden", 
-        color: "white",
-        // ГЛАВНАЯ ФИШКА: Скрываем курсор только на 0 странице (Dashboard)
-        cursor: page === 0 ? "none" : "default" 
-      }}>
-
-        {/* СТРОГИЙ ИНДИКАТОР СТАТУСА */}
+      <Box
+        style={{
+          backgroundColor: "#000",
+          height: "100vh",
+          width: "100vw",
+          overflow: "hidden",
+          color: "white",
+          // Скрываем курсор только на Dashboard (страница 0)
+          cursor: page === 0 ? "none" : "default",
+        }}
+      >
+        {/* ВЕРХНИЙ СТАТУС-БАР ОБНОВЛЕНИЙ */}
         {updStatus && (
-          <Box style={{ 
-            position: "fixed", 
-            top: 40, 
-            left: "50%", 
-            transform: "translateX(-50%)", 
-            zIndex: 10000, 
-            width: 320, 
-            background: "rgba(5,5,5,0.95)", 
-            padding: "20px", 
-            border: "1px solid #111", 
-            borderRadius: "4px" 
-          }}>
+          <Box
+            style={{
+              position: "fixed",
+              top: 40,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 10000,
+              width: 320,
+              background: "rgba(5,5,5,0.95)",
+              padding: "20px",
+              border: "1px solid #111",
+              borderRadius: "4px",
+            }}
+          >
             <Text size="xs" fw={900} mb={updProgress > 0 ? 10 : 0} ta="center" style={{ letterSpacing: "3px" }}>
               {updStatus.toUpperCase()}
             </Text>
-            {updProgress > 0 && <Progress value={updProgress} color="white" size="xs" animated />}
+            {updProgress > 0 && (
+              <Progress value={updProgress} color="white" size="xs" animated />
+            )}
           </Box>
         )}
 
-        {/* КОНТЕЙНЕР СЛАЙДОВ */}
-        <Box style={{ 
-          display: "flex", 
-          width: "300vw", 
-          height: "100vh", 
-          transition: "transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)", 
-          transform: `translateX(-${page * 100}vw)` 
-        }}>
+        {/* СЛАЙДЕР СТРАНИЦ */}
+        <Box
+          style={{
+            display: "flex",
+            width: "300vw",
+            height: "100vh",
+            transition: "transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
+            transform: `translateX(-${page * 100}vw)`,
+          }}
+        >
           <Dashboard time={time} weather={weather} sensors={sensors} news={news} />
-          
           <Hub launch={launch} />
-          
-          <Settings 
-            sendCmd={sendCmd} 
-            updateMirror={updateMirror} 
-            updatePython={updatePython} 
-            appVersion={appVersion} 
+          <Settings
+            sendCmd={sendCmd}
+            updateMirror={updateMirror}
+            updatePython={updatePython}
+            appVersion={appVersion}
+            openWifiSettings={openWifiSettings}
           />
         </Box>
 
@@ -146,18 +152,20 @@ const updatePython = async () => {
         <Box style={{ position: "fixed", bottom: 40, left: "50%", transform: "translateX(-50%)", zIndex: 100 }}>
           <div style={{ display: "flex", gap: "15px" }}>
             {[0, 1, 2].map((i) => (
-              <Box key={i} style={{ 
-                width: i === page ? 25 : 8, 
-                height: 8, 
-                borderRadius: 4, 
-                backgroundColor: i === page ? "white" : "#111", 
-                border: i === page ? "none" : "1px solid #222",
-                transition: "all 0.4s ease" 
-              }} />
+              <Box
+                key={i}
+                style={{
+                  width: i === page ? 25 : 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: i === page ? "white" : "#111",
+                  border: i === page ? "none" : "1px solid #222",
+                  transition: "all 0.4s ease",
+                }}
+              />
             ))}
           </div>
         </Box>
-
       </Box>
     </MantineProvider>
   );
