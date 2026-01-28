@@ -1,32 +1,28 @@
-import { app, BrowserWindow, ipcMain, screen, protocol } from "electron";
+import { app, BrowserWindow, screen, protocol } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
-import { exec } from "child_process";
-import { createRequire } from "module";
 
-// Настройка для работы с ESM
+// --- МИКРОСЕРВИСЫ ---
+import { getDeviceId } from "./backend/identity.js";
+import { setupMqtt } from "./backend/mqtt.js";
+import { setupIpc } from "./backend/ipc.js";
+import { setupUpdater } from "./backend/updater.js";
+import { setupGpio, cleanupGpio } from "./backend/gpio.js"; 
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const require = createRequire(import.meta.url);
-
-// Подключаем модули, которые требуют CommonJS
-const { autoUpdater } = require("electron-updater");
 
 let mainWindow;
 
-// Регистрация привилегий для протокола file:// (важно сделать до ready)
+// 1. ИНИЦИАЛИЗАЦИЯ
+const deviceId = getDeviceId();          
+const mqttClient = setupMqtt(deviceId);  
+setupGpio(deviceId, mqttClient); // Запускаем заглушки датчиков
+setupIpc(deviceId);                      
+setupUpdater(() => mainWindow);          
+
 protocol.registerSchemesAsPrivileged([
-  {
-    scheme: "file",
-    privileges: {
-      standard: true,
-      secure: true,
-      allowServiceWorkers: true,
-      supportFetchAPI: true,
-      corsEnabled: true,
-      stream: true,
-    },
-  },
+  { scheme: "file", privileges: { standard: true, secure: true, allowServiceWorkers: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
 ]);
 
 function createWindow() {
@@ -36,168 +32,33 @@ function createWindow() {
     width,
     height,
     fullscreen: true,
-    kiosk: false,
-    frame: false, // Без рамок
+    kiosk: false, // Для тестов false, потом true
+    frame: false,
     backgroundColor: "#000000",
-    alwaysOnTop: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      webSecurity: false, // Снимает блокировку локальных ресурсов
+      webSecurity: false,
     },
   });
 
   const isDev = process.env.NODE_ENV === "development";
-
-  // ПУТЬ К ФАЙЛАМ:
-  // В билде AppImage main.js лежит в resources/app.asar/
-  // index.html лежит в resources/app.asar/dist/
-  const indexPath = isDev
-    ? "http://localhost:5173"
-    : path.join(__dirname, "dist", "index.html");
-
-  const startUrl = isDev ? indexPath : `file://${indexPath}`;
+  const startUrl = isDev 
+    ? "http://localhost:5173" 
+    : `file://${path.join(__dirname, "dist", "index.html")}`;
 
   console.log("VECTOR OS Loading:", startUrl);
   mainWindow.loadURL(startUrl);
-
-  mainWindow.on("closed", () => {
-    mainWindow = null;
+  mainWindow.on("closed", () => { mainWindow = null; });
+  mainWindow.webContents.on('did-finish-load', () => {
+      mainWindow.webContents.send("app-version", app.getVersion());
   });
 }
 
-// --- IPC ЛОГИКА (Связь с React) ---
-
-// 1. Управление курсором
-ipcMain.on("set-cursor", (event, type) => {
-  if (mainWindow) {
-    mainWindow.webContents.send("cursor-changed", type);
-  }
-});
-
-// 2. Системный Wi-Fi (nmtui)
-ipcMain.on("open-wifi-settings", () => {
-  console.log("!!! VECTOR OS: Попытка принудительного запуска GNOME Settings...");
-
-  // Собираем команду со всеми переменными окружения
-  // XDG_CURRENT_DESKTOP=GNOME говорит системе, что мы в оболочке GNOME
-  // XDG_RUNTIME_DIR помогает найти системную шину пользователя
-  const cmd = `
-    export DISPLAY=:0;
-    export XDG_CURRENT_DESKTOP=GNOME;
-    export XDG_RUNTIME_DIR=/run/user/$(id -u);
-    gnome-control-center wifi
-  `;
-
-  exec(cmd, (error, stdout, stderr) => {
-    if (error) {
-      console.error("Ошибка запуска gnome-control-center:");
-      console.error("STDOUT:", stdout);
-      console.error("STDERR:", stderr); // Если не сработает, напиши мне, что будет в этой строке
-      
-      // Если даже так не пойдет, пробуем через панель задач (dbus)
-      const dbusFallback = `DISPLAY=:0 dbus-send --session --type=method_call --dest=org.gnome.Shell /org/gnome/Shell org.gnome.Shell.Eval string:"Main.panel.statusArea.aggregateMenu._network.menu.toggle();"`;
-      exec(dbusFallback);
-    }
-  });
-});
-
-// 3. Питание системы
-ipcMain.on("system-cmd", (event, cmd) => {
-  console.log(`System Command: ${cmd}`);
-  if (cmd === "reboot") exec("sudo reboot");
-  if (cmd === "shutdown") exec("sudo shutdown -h now");
-});
-
-// 4. Запуск приложений (YouTube TV и др.)
-ipcMain.on("launch", (event, { data, type }) => {
-  if (type === "sys") {
-    // Запуск системных команд или скриптов
-    exec(data);
-  } else {
-    // Запуск сайтов (YouTube TV, Google Keep и т.д.) в новом окне поверх зеркала
-    let win = new BrowserWindow({
-      fullscreen: true,
-      kiosk: true,
-      frame: false,
-      backgroundColor: "#000000",
-    });
-    win.loadURL(data);
-    win.on("closed", () => {
-      win = null;
-    });
-  }
-});
-
-// --- АВТООБНОВЛЕНИЯ (Electron Updater) ---
-
-// --- Обработка обновлений ---
-
-ipcMain.on("check-for-updates", () => {
-  console.log("Кнопка нажата, режим packaged:", app.isPackaged);
-
-  if (app.isPackaged) {
-    if (mainWindow) {
-      mainWindow.webContents.send("update_status", "Поиск обновлений...");
-    }
-    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-      if (mainWindow)
-        mainWindow.webContents.send("update_status", "Ошибка апдейтера");
-    });
-  } else {
-    if (mainWindow)
-      mainWindow.webContents.send("update_status", "Dev-mode: Ок");
-  }
-});
-
-// Слушатели для AppImage (чтобы текст менялся на экране)
-autoUpdater.on("checking-for-update", () => {
-  mainWindow?.webContents.send("update_status", "Связь с сервером...");
-});
-
-autoUpdater.on("update-available", () => {
-  mainWindow?.webContents.send("update_status", "Найдена новая версия!");
-});
-
-autoUpdater.on("update-not-available", () => {
-  mainWindow?.webContents.send("update_status", "У вас актуальная версия");
-  setTimeout(() => {
-    mainWindow?.webContents.send("update_status", "");
-  }, 4000);
-});
-
-autoUpdater.on("error", (err) => {
-  mainWindow?.webContents.send(
-    "update_status",
-    "Ошибка: " + err.message.substring(0, 20),
-  );
-});
-
-autoUpdater.on("download-progress", (p) => {
-  mainWindow?.webContents.send("update_progress", p.percent);
-});
-
-autoUpdater.on("update-downloaded", () => {
-  mainWindow?.webContents.send("update_status", "Готово! Перезапуск...");
-  setTimeout(() => {
-    autoUpdater.quitAndInstall();
-  }, 3000);
-});
-
-// --- ЗАПУСК ПРИЛОЖЕНИЯ ---
-
-app.whenReady().then(() => {
-  createWindow();
-
-  // Отправляем версию приложения в React через 3 секунды после старта
-  setTimeout(() => {
-    if (mainWindow) {
-      mainWindow.webContents.send("app-version", app.getVersion());
-    }
-  }, 3000);
-});
+app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
+  cleanupGpio(); // Останавливаем таймеры
   if (process.platform !== "darwin") app.quit();
 });
 
