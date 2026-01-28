@@ -1,52 +1,41 @@
-import { useState } from 'react';
-import { Button, Modal, Center, Loader, Text } from '@mantine/core';
-import { QRCodeSVG } from 'qrcode.react'; // 👈 Используем твою библиотеку
+import { useState, useEffect } from 'react';
+import { Button, Modal, Center, Text, Stack } from '@mantine/core';
+import { QRCodeSVG } from 'qrcode.react';
+
+// Подключаем Electron (чтобы спросить Device ID)
+const { ipcRenderer } = window.require('electron');
 
 export const YandexAuth = () => {
   const [opened, setOpened] = useState(false);
-  const [authLink, setAuthLink] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [deviceId, setDeviceId] = useState('');
 
-  const fetchQrCode = async () => {
-    setOpened(true);
-    setLoading(true);
-    setError(null);
-    setAuthLink(null);
+  useEffect(() => {
+    // Спрашиваем ID у нашего нового main.js
+    ipcRenderer.invoke('get-device-id')
+      .then((id) => setDeviceId(id))
+      .catch((err) => console.error("Ошибка получения ID:", err));
+  }, []);
 
-    try {
-      // Запрашиваем только ссылку у Node-RED
-      const res = await fetch('http://localhost:1880/auth/yandex/qr');
-      
-      if (!res.ok) throw new Error('Ошибка связи с Node-RED');
-
-      const link = await res.text();
-      setAuthLink(link);
-
-    } catch (e) {
-      console.error(e);
-      setError("Не удалось получить ссылку 🔌");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Ссылка ведет на твой сервер (страница активации)
+  // Мы используем IP сервера, пока нет домена yeee.kz, или сам домен, если он настроен
+  const activateUrl = `http://alice.yeee.kz/activate?id=${deviceId}`;
 
   return (
     <>
       <Button 
-        onClick={fetchQrCode} 
+        onClick={() => setOpened(true)} 
         color="red" 
         variant="light"
         fullWidth
         style={{ marginTop: 10, border: '1px solid rgba(255, 0, 0, 0.2)' }}
       >
-        ПРИВЯЗАТЬ АЛИСУ (YANDEX) 🎙
+        ПОДКЛЮЧИТЬ К АЛИСЕ 🎙
       </Button>
 
       <Modal 
         opened={opened} 
         onClose={() => setOpened(false)} 
-        title="Вход через Яндекс"
+        title="Активация устройства"
         centered
         styles={{ 
             content: { backgroundColor: '#1A1B1E', color: 'white' }, 
@@ -54,25 +43,28 @@ export const YandexAuth = () => {
         }}
       >
         <Center style={{ flexDirection: 'column', gap: 20, padding: 20 }}>
-          {loading && <Loader color="red" />}
           
-          {error && <Text color="red" size="sm">{error}</Text>}
-
-          {/* Генерируем QR через qrcode.react */}
-          {authLink && !loading && (
-            <div style={{ background: 'white', padding: '16px', borderRadius: '10px' }}>
+          <div style={{ background: 'white', padding: '16px', borderRadius: '10px' }}>
+            {deviceId ? (
               <QRCodeSVG 
-                value={authLink} 
+                value={activateUrl} 
                 size={200}
                 fgColor="#000000"
                 bgColor="#FFFFFF"
               />
-            </div>
-          )}
+            ) : (
+              <Text c="dimmed">Загрузка ID...</Text>
+            )}
+          </div>
 
-          <Text size="xs" c="dimmed" align="center">
-            Наведи камеру телефона на код,<br/>чтобы войти в аккаунт.
-          </Text>
+          <Stack gap={5} align="center">
+            <Text size="sm" fw={700}>ID: {deviceId}</Text>
+            <Text size="xs" c="dimmed" align="center">
+              Сканируйте код, чтобы<br/>
+              добавить зеркало в Умный Дом.
+            </Text>
+          </Stack>
+
         </Center>
       </Modal>
     </>

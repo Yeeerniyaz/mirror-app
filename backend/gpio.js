@@ -4,7 +4,8 @@ import { exec } from "child_process";
 let sensorInterval;
 let ledStatus = { r: 0, g: 0, b: 0, brightness: 0 };
 
-export const setupGpio = (deviceId, mqttClient) => {
+// 👇 ВАЖНО: Добавляем 3-й аргумент getMainWindow
+export const setupGpio = (deviceId, mqttClient, getMainWindow) => {
   console.log("🔌 GPIO: Запущен режим симуляции (Заглушки)");
   console.log("   - BME280 (Temp/Hum/Press) [VIRTUAL]");
   console.log("   - ENS160 (CO2/TVOC)       [VIRTUAL]");
@@ -12,8 +13,7 @@ export const setupGpio = (deviceId, mqttClient) => {
 
   // 1. СИМУЛЯТОР ДАТЧИКОВ (Отправляем данные раз в 5 сек)
   sensorInterval = setInterval(() => {
-    if (!mqttClient || !mqttClient.connected) return;
-
+    
     // Генерируем фейковые данные (как будто дома тепло и свежо)
     const fakeData = {
       bme: {
@@ -29,9 +29,23 @@ export const setupGpio = (deviceId, mqttClient) => {
       timestamp: Date.now()
     };
 
-    // Публикуем в топик: vector/{ID}/sensors
-    mqttClient.publish(`vector/${deviceId}/sensors`, JSON.stringify(fakeData));
-    // console.log("📡 Sensors data sent:", fakeData); // Раскомментируй для отладки
+    // А. ОТПРАВЛЯЕМ В ОБЛАКО (MQTT)
+    // Чтобы ты видел данные в телефоне или админке
+    if (mqttClient && mqttClient.connected) {
+       mqttClient.publish(`vector/${deviceId}/sensors`, JSON.stringify(fakeData));
+    }
+
+    // Б. 👇 ОТПРАВЛЯЕМ НА ЭКРАН (REACT)
+    // Чтобы цифры менялись прямо сейчас перед глазами
+    const win = getMainWindow(); // Получаем доступ к окну
+    if (win) {
+      win.webContents.send('sensors-data', {
+        temp: fakeData.bme.temp,
+        hum: fakeData.bme.hum,
+        co2: fakeData.ens.co2
+      });
+    }
+
   }, 5000);
 };
 

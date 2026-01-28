@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
 const WEATHER_API = "https://api.open-meteo.com/v1/forecast?latitude=43.2389&longitude=76.8897&current_weather=true";
-const SENSORS_API = "http://127.0.0.1:5005/api/sensors";
 const RSS_API = "https://api.rss2json.com/v1/api.json?rss_url=";
 
 const ipc = window.require ? window.require("electron").ipcRenderer : null;
@@ -15,7 +14,7 @@ export function useMirrorData() {
   const [updProgress, setUpdProgress] = useState(0);
   const [appVersion, setAppVersion] = useState("N/A");
 
-  // --- ЗАГРУЗКА ДАННЫХ ---
+  // --- ЗАГРУЗКА ДАННЫХ ИЗ ИНТЕРНЕТА ---
   const fetchData = async () => {
     try {
       const results = await Promise.allSettled([
@@ -23,7 +22,7 @@ export function useMirrorData() {
         fetch(`${RSS_API}https://www.zakon.kz/rss/news.xml`).then((r) => r.json()),
         fetch(`${RSS_API}https://www.nur.kz/rss/all.xml`).then((r) => r.json()),
         fetch(WEATHER_API).then((r) => r.json()),
-        fetch(SENSORS_API).then((r) => r.json()),
+        // fetch(SENSORS_API) -> УДАЛЕНО (Python больше нет)
       ]);
 
       // 1. Новости
@@ -52,14 +51,6 @@ export function useMirrorData() {
         });
       }
 
-      // 3. Датчики
-      if (results[4].status === "fulfilled" && results[4].value) {
-        setSensors({
-          temp: results[4].value.temp || "--",
-          hum: results[4].value.hum || "--",
-          co2: results[4].value.co2 || "--",
-        });
-      }
     } catch (e) {
       console.error("Data fetch failed", e);
     }
@@ -69,21 +60,32 @@ export function useMirrorData() {
     const clockTimer = setInterval(() => setTime(new Date()), 1000);
     const dataTimer = setInterval(fetchData, 60000); // Раз в минуту
 
-    fetchData();
+    fetchData(); // Первый запуск
 
     if (ipc) {
+      // Слушаем системные события
       ipc.on("update_status", (e, m) => setUpdStatus(m));
       ipc.on("update_progress", (e, p) => setUpdProgress(p));
       ipc.on("app-version", (e, v) => setAppVersion(v));
+
+      // 👇 СЛУШАЕМ ДАТЧИКИ ОТ ELECTRON (Backend)
+      ipc.on("sensors-data", (e, data) => {
+         // Получаем чистый объект { temp, hum, co2 }
+         setSensors(data);
+      });
+
       ipc.send("get-app-version");
     }
 
     return () => {
       clearInterval(clockTimer);
       clearInterval(dataTimer);
-      ipc?.removeAllListeners("update_status");
-      ipc?.removeAllListeners("update_progress");
-      ipc?.removeAllListeners("app-version");
+      if (ipc) {
+        ipc.removeAllListeners("update_status");
+        ipc.removeAllListeners("update_progress");
+        ipc.removeAllListeners("app-version");
+        ipc.removeAllListeners("sensors-data");
+      }
     };
   }, []);
 

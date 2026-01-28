@@ -17,7 +17,10 @@ let mainWindow;
 // 1. ИНИЦИАЛИЗАЦИЯ
 const deviceId = getDeviceId();          
 const mqttClient = setupMqtt(deviceId);  
-setupGpio(deviceId, mqttClient); // Запускаем заглушки датчиков
+
+// 👇 ВАЖНОЕ ИЗМЕНЕНИЕ: Передаем () => mainWindow третьим аргументом
+setupGpio(deviceId, mqttClient, () => mainWindow); 
+
 setupIpc(deviceId);                      
 setupUpdater(() => mainWindow);          
 

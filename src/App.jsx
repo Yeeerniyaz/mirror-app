@@ -6,14 +6,13 @@ import { Dashboard } from "./pages/Dashboard";
 import { Hub } from "./pages/Hub";
 import { Settings } from "./pages/Settings";
 
-// Electron IPC (если запущен в Electron)
-// В самом верху App.jsx
+// Подключаем IPC для Electron
 const ipc = window.require ? window.require("electron").ipcRenderer : null;
 
 export default function App() {
   const [page, setPage] = useState(0);
 
-  // Оставляем в хуке только то, что реально нужно для работы зеркала
+  // Данные из хука (погода, новости и т.д.)
   const {
     time,
     sensors,
@@ -23,68 +22,31 @@ export default function App() {
     updProgress,
     appVersion,
     setUpdStatus,
-    fetchData,
   } = useMirrorData();
 
-  // Системные команды Electron
+  // --- СИСТЕМНЫЕ КОМАНДЫ (ЧЕРЕЗ ELECTRON) ---
+  
   const openWifiSettings = () => ipc?.send("open-wifi-settings");
+  
   const launch = (data, type, isTV = false) => ipc?.send("launch", { data, type, isTV });
+  
   const updateMirror = () => ipc?.send("check-for-updates");
 
-  // Универсальная функция отправки команд на Python-бэкенд (5005)
-  const sendCmd = async (endpoint) => {
-    setUpdStatus(`ВЫПОЛНЕНИЕ: ${endpoint.toUpperCase()}...`);
-    try {
-      const res = await fetch(`http://127.0.0.1:5005/api/system/${endpoint}`, {
-        method: "POST",
-      });
-      if (res.ok) {
-        setUpdStatus("УСПЕШНО");
-      } else {
-        setUpdStatus("ОШИБКА СЕРВЕРА");
-      }
-    } catch (e) {
-      setUpdStatus("СВЯЗЬ ПОТЕРЯНА");
-    }
-    setTimeout(() => setUpdStatus(""), 3000);
+  // Команды для системного меню (перезагрузка и т.д.)
+  // Теперь мы шлем их просто в Electron, он сам разберется
+  const sendCmd = (cmd) => {
+    setUpdStatus(`ВЫПОЛНЕНИЕ: ${cmd.toUpperCase()}...`);
+    ipc?.send("system-cmd", cmd);
+    setTimeout(() => setUpdStatus(""), 2000);
   };
 
-  // Обновление Python-части (Git Pull + Перезапуск моста)
-  const updatePython = async () => {
-    setUpdStatus("ОБНОВЛЕНИЕ СИСТЕМЫ...");
-    try {
-      const res = await fetch("http://127.0.0.1:5005/api/system/update-python", {
-        method: "POST",
-      });
-
-      if (res.ok) {
-        setUpdStatus("КОД ЗАГРУЖЕН. ПЕРЕЗАПУСК...");
-        
-        // Ждем 4 секунды, пока bridge.py проснется после перезагрузки
-        setTimeout(async () => {
-          try {
-            await fetchData();
-            setUpdStatus("СИНХРОНИЗАЦИЯ ЗАВЕРШЕНА");
-          } catch (err) {
-            setUpdStatus("ДАТЧИКИ ЕЩЕ СПЯТ");
-          }
-          setTimeout(() => setUpdStatus(""), 2000);
-        }, 4000);
-      } else {
-        setUpdStatus("ОШИБКА ОБНОВЛЕНИЯ");
-        setTimeout(() => setUpdStatus(""), 3000);
-      }
-    } catch (e) {
-      setUpdStatus("БРИДЖ НЕ ОТВЕЧАЕТ");
-      setTimeout(() => setUpdStatus(""), 3000);
-    }
-  };
-
-  // Навигация клавишами ArrowRight / ArrowLeft
+  // --- НАВИГАЦИЯ КЛАВИШАМИ ---
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "ArrowRight") setPage((p) => Math.min(p + 1, 2));
       if (e.key === "ArrowLeft") setPage((p) => Math.max(p - 1, 0));
+      // Для отладки: пробел переключает страницы по кругу
+      if (e.key === " ") setPage((p) => (p + 1) % 3);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -99,11 +61,11 @@ export default function App() {
           width: "100vw",
           overflow: "hidden",
           color: "white",
-          // Скрываем курсор только на Dashboard (страница 0)
+          // Скрываем курсор только на главном экране
           cursor: page === 0 ? "none" : "default",
         }}
       >
-        {/* ВЕРХНИЙ СТАТУС-БАР ОБНОВЛЕНИЙ */}
+        {/* ВЕРХНИЙ БАР ОБНОВЛЕНИЙ */}
         {updStatus && (
           <Box
             style={{
@@ -138,23 +100,28 @@ export default function App() {
             transform: `translateX(-${page * 100}vw)`,
           }}
         >
+          {/* СТРАНИЦА 0: ГЛАВНЫЙ ЭКРАН */}
           <Dashboard time={time} weather={weather} sensors={sensors} news={news} />
+          
+          {/* СТРАНИЦА 1: ПРИЛОЖЕНИЯ */}
           <Hub launch={launch} />
+          
+          {/* СТРАНИЦА 2: НАСТРОЙКИ */}
           <Settings
             sendCmd={sendCmd}
             updateMirror={updateMirror}
-            updatePython={updatePython}
             appVersion={appVersion}
             openWifiSettings={openWifiSettings}
           />
         </Box>
 
-        {/* ТОЧКИ ПАГИНАЦИИ */}
+        {/* ИНДИКАТОРЫ СТРАНИЦ (ТОЧКИ) */}
         <Box style={{ position: "fixed", bottom: 40, left: "50%", transform: "translateX(-50%)", zIndex: 100 }}>
           <div style={{ display: "flex", gap: "15px" }}>
             {[0, 1, 2].map((i) => (
               <Box
                 key={i}
+                onClick={() => setPage(i)} // Можно кликнуть мышкой
                 style={{
                   width: i === page ? 25 : 8,
                   height: 8,
@@ -162,6 +129,7 @@ export default function App() {
                   backgroundColor: i === page ? "white" : "#111",
                   border: i === page ? "none" : "1px solid #222",
                   transition: "all 0.4s ease",
+                  cursor: "pointer"
                 }}
               />
             ))}
