@@ -1,5 +1,7 @@
 import { Container, Stack, Title, Text, Group, Box, UnstyledButton, Center } from "@mantine/core";
 import { RefreshCw, LogIn, LogOut, Power, Cpu, Settings as SettingsIcon, ChevronRight, Wifi } from "lucide-react";
+// 👇 Импортируем нашу новую кнопку
+import { YandexAuth } from '../components/YandexAuth';
 
 export const Settings = ({ 
   sendCmd, 
@@ -81,13 +83,8 @@ export const Settings = ({
                 danger
               />
             ) : (
-              <SettingRow 
-                icon={LogIn} 
-                label="Авторизация" 
-                description="Синхронизация профиля" 
-                actionLabel="AUTH" 
-                onClick={onLogin}
-              />
+              // 👇 ВМЕСТО СТАРОЙ КНОПКИ АВТОРИЗАЦИИ ТЕПЕРЬ НАША
+              <YandexAuth />
             )}
           </Stack>
         </Box>
@@ -101,7 +98,7 @@ export const Settings = ({
               label="Параметры Wi-Fi" 
               description="Настройка беспроводной сети через систему" 
               onClick={openWifiSettings}
-              actionLabel="SYSTEM"  /* Изменили с NMTUI на SYSTEM */
+              actionLabel="SYSTEM"
             />
             <SettingRow 
               icon={Power} 
@@ -118,10 +115,10 @@ export const Settings = ({
           <Stack gap="xs">
             <SettingRow 
               icon={Cpu} 
-              label="Обновить ядро моста"  /* Поменяли имя с "Синхронизация датчиков" */
+              label="Обновить ядро моста"
               description="Перезагрузка Python-скриптов и Git pull" 
               onClick={updatePython}
-              actionLabel="REBUILD" /* Добавили кнопку действия для красоты */
+              actionLabel="REBUILD"
             />
             <SettingRow 
               icon={RefreshCw} 
@@ -132,7 +129,7 @@ export const Settings = ({
           </Stack>
         </Box>
 
-        {/* Копирайт терминала */}
+        {/* Копирайт */}
         <Center mt="xl">
           <Text size="xs" style={{ letterSpacing: '4px', color: '#222', fontWeight: 700 }}>
             REV_{appVersion.replace(/\./g, '_')} // YEEE.KZ
