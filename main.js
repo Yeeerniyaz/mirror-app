@@ -77,13 +77,13 @@ ipcMain.on("set-cursor", (event, type) => {
 
 // 2. Системный Wi-Fi (nmtui)
 ipcMain.on("open-wifi-settings", () => {
-  console.log("!!! VECTOR OS: Запуск системных настроек в ТЕМНОЙ теме...");
+  console.log("!!! VECTOR OS: Попытка принудительного запуска GNOME Settings...");
 
-  // Мы принудительно выставляем GTK_THEME=Yaru-dark
-  // Это заставит окно открыться с черным фоном
+  // Собираем команду со всеми переменными окружения
+  // XDG_CURRENT_DESKTOP=GNOME говорит системе, что мы в оболочке GNOME
+  // XDG_RUNTIME_DIR помогает найти системную шину пользователя
   const cmd = `
     export DISPLAY=:0;
-    export GTK_THEME=Yaru-dark;
     export XDG_CURRENT_DESKTOP=GNOME;
     export XDG_RUNTIME_DIR=/run/user/$(id -u);
     gnome-control-center wifi
@@ -91,9 +91,13 @@ ipcMain.on("open-wifi-settings", () => {
 
   exec(cmd, (error, stdout, stderr) => {
     if (error) {
-      console.error(`Ошибка запуска: ${error.message}`);
-      // Запасной вариант, если Yaru-dark не найден
-      exec('DISPLAY=:0 GTK_THEME=Adwaita-dark gnome-control-center wifi');
+      console.error("Ошибка запуска gnome-control-center:");
+      console.error("STDOUT:", stdout);
+      console.error("STDERR:", stderr); // Если не сработает, напиши мне, что будет в этой строке
+      
+      // Если даже так не пойдет, пробуем через панель задач (dbus)
+      const dbusFallback = `DISPLAY=:0 dbus-send --session --type=method_call --dest=org.gnome.Shell /org/gnome/Shell org.gnome.Shell.Eval string:"Main.panel.statusArea.aggregateMenu._network.menu.toggle();"`;
+      exec(dbusFallback);
     }
   });
 });
