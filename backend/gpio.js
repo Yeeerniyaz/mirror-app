@@ -1,80 +1,124 @@
-import { exec } from "child_process";
+import i2c from "i2c-bus";
 
-// Таймеры для симуляции
 let sensorInterval;
-let ledStatus = { r: 0, g: 0, b: 0, brightness: 0 };
+let ws281x;
+let channel;
 
-// 👇 ВАЖНО: Добавляем 3-й аргумент getMainWindow
-export const setupGpio = (deviceId, mqttClient, getMainWindow) => {
-  console.log("🔌 GPIO: Запущен режим симуляции (Заглушки)");
-  console.log("   - BME280 (Temp/Hum/Press) [VIRTUAL]");
-  console.log("   - ENS160 (CO2/TVOC)       [VIRTUAL]");
-  console.log("   - WS2812B (LED Strip)     [VIRTUAL]");
+// Константы подключения
+const LIGHT_PIN = 21; // GPIO 21 (Физический Пин №40)
+const NUM_LEDS = 8;  // Измени на количество диодов в своей ленте
+const ADDR_AHT21 = 0x38;
+const ADDR_ENS160 = 0x53;
 
-  // 1. СИМУЛЯТОР ДАТЧИКОВ (Отправляем данные раз в 5 сек)
-  sensorInterval = setInterval(() => {
+// Динамическая загрузка библиотеки для ленты (только для RPi)
+async function initLedLib() {
+  try {
+    const mod = await import("rpi-ws281x-native");
+    ws281x = mod.default;
     
-    // Генерируем фейковые данные (как будто дома тепло и свежо)
-    const fakeData = {
-      bme: {
-        temp: (24 + Math.random()).toFixed(1),      // ~24.5 °C
-        hum: (45 + Math.random() * 5).toFixed(1),   // ~47%
-        press: (760 + Math.random()).toFixed(0)     // ~760 мм рт.ст.
-      },
-      ens: {
-        co2: (400 + Math.random() * 50).toFixed(0), // ~420 ppm (Чистый воздух)
-        tvoc: (10 + Math.random() * 5).toFixed(0),  // Индекс качества
-        aqi: 1
-      },
-      timestamp: Date.now()
-    };
+    channel = ws281x(NUM_LEDS, {
+      gpio: LIGHT_PIN,
+      brightness: 150,
+      stripType: ws281x.stripType.WS2812B
+    });
+    
+    console.log("🌈 WS2812B: Библиотека загружена и инициализирована");
+    
+    // Приветственная вспышка оранжевым при старте
+    const pixels = channel.array;
+    const orange = (255 << 16) | (165 << 8) | 0;
+    for (let i = 0; i < NUM_LEDS; i++) pixels[i] = orange;
+    ws281x.render();
+    
+  } catch (e) {
+    console.warn("⚠️ WS2812B: Режим симуляции (на Windows библиотека не работает)");
+  }
+}
 
-    // А. ОТПРАВЛЯЕМ В ОБЛАКО (MQTT)
-    // Чтобы ты видел данные в телефоне или админке
-    if (mqttClient && mqttClient.connected) {
-       mqttClient.publish(`vector/${deviceId}/sensors`, JSON.stringify(fakeData));
-    }
+export const setupGpio = async (deviceId, mqttClient, getMainWindow) => {
+  await initLedLib();
+  console.log("🔌 GPIO: Запуск VECTOR (ENS160 + AHT21)");
 
-    // Б. 👇 ОТПРАВЛЯЕМ НА ЭКРАН (REACT)
-    // Чтобы цифры менялись прямо сейчас перед глазами
-    const win = getMainWindow(); // Получаем доступ к окну
-    if (win) {
-      win.webContents.send('sensors-data', {
-        temp: fakeData.bme.temp,
-        hum: fakeData.bme.hum,
-        co2: fakeData.ens.co2
-      });
-    }
+  try {
+    const bus = await i2c.openPromisified(1);
+    
+    // Инициализация ENS160 (перевод в рабочий режим)
+    await bus.writeByte(ADDR_ENS160, 0x10, 0x02);
 
-  }, 5000);
+    sensorInterval = setInterval(async () => {
+      try {
+        // --- Чтение AHT21 (Температура и Влажность) ---
+        await bus.i2cWrite(ADDR_AHT21, 3, Buffer.from([0xac, 0x33, 0x00]));
+        await new Promise(r => setTimeout(r, 100)); // Время на замер
+        const ahtBuf = Buffer.alloc(7);
+        await bus.i2cRead(ADDR_AHT21, 7, ahtBuf);
+        
+        const humidity = ((ahtBuf[1] << 12 | ahtBuf[2] << 4 | ahtBuf[3] >> 4) / 0x100000) * 100;
+        const temperature = (((ahtBuf[3] & 0x0F) << 16 | ahtBuf[4] << 8 | ahtBuf[5]) / 0x100000) * 200 - 50;
+
+        // --- Чтение ENS160 (Качество воздуха) ---
+        const aqi = await bus.readByte(ADDR_ENS160, 0x21) & 0x07;
+        const eco2 = await bus.readWord(ADDR_ENS160, 0x24);
+
+        const data = {
+          temp: temperature.toFixed(1),
+          hum: humidity.toFixed(1),
+          co2: eco2,
+          aqi: aqi,
+          timestamp: Date.now()
+        };
+
+        // 1. Отправка в React (на экран зеркала)
+        const win = getMainWindow();
+        if (win) {
+          win.webContents.send('sensors-data', {
+            temp: data.temp,
+            hum: data.hum,
+            co2: data.co2
+          });
+        }
+
+        // 2. Отправка в облако (MQTT)
+        if (mqttClient?.connected) {
+          mqttClient.publish(`vector/${deviceId}/sensors`, JSON.stringify(data));
+        }
+
+      } catch (err) {
+        console.error("❌ Ошибка чтения датчиков:", err.message);
+      }
+    }, 5000); // Опрос каждые 5 секунд
+
+  } catch (err) {
+    console.error("❌ I2C не доступен:", err.message);
+  }
 };
 
-// 2. УПРАВЛЕНИЕ ЛЕНТОЙ (Принимает команды от mqtt.js)
+// Управление лентой
 export const controlLed = (command, payload) => {
-  // command: 'LED_COLOR', 'LED_OFF', 'LED_EFFECT'
-  
+  if (!ws281x || !channel) return;
+  const pixels = channel.array;
+
   if (command === 'LED_OFF') {
-    ledStatus = { r: 0, g: 0, b: 0, brightness: 0 };
-    console.log("🌈 LED STRIP: OFF");
-    // Тут потом будет реальный код: ws281x.reset();
+    for (let i = 0; i < NUM_LEDS; i++) pixels[i] = 0;
+    ws281x.render();
+    console.log("🌈 LED: Выключено");
   } 
   
   else if (command === 'LED_COLOR') {
-    // Ожидаем payload вида "255,0,0" (Красный)
+    // Формат payload: "255,165,0"
     const [r, g, b] = payload.split(',').map(Number);
-    ledStatus = { r, g, b, brightness: 255 };
-    console.log(`🌈 LED STRIP: Color set to R:${r} G:${g} B:${b}`);
-    // Тут потом будет реальный код: ws281x.render(pixels);
-  }
-
-  else if (command === 'LED_EFFECT') {
-    console.log(`🌈 LED STRIP: Playing effect "${payload}"`);
-    // Например "RAINBOW" или "ALICE_LISTENING"
+    const color = (r << 16) | (g << 8) | b;
+    for (let i = 0; i < NUM_LEDS; i++) pixels[i] = color;
+    ws281x.render();
+    console.log(`🌈 LED: Цвет изменен на RGB(${r},${g},${b})`);
   }
 };
 
-// Очистка при выходе
+// Очистка при выключении
 export const cleanupGpio = () => {
   if (sensorInterval) clearInterval(sensorInterval);
-  console.log("🔌 GPIO: Stopped");
+  if (ws281x) {
+    ws281x.reset();
+  }
+  console.log("🔌 GPIO: Остановлено");
 };
