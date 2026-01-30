@@ -7,7 +7,7 @@ import { getDeviceId } from "./backend/identity.js";
 import { setupMqtt } from "./backend/mqtt.js";
 import { setupIpc } from "./backend/ipc.js";
 import { setupUpdater } from "./backend/updater.js";
-import { setupGpio, cleanupGpio } from "./backend/gpio.js"; 
+// ❌ УДАЛЕНО: import { setupGpio... } — Это больше не нужно!
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,14 +15,17 @@ const __dirname = path.dirname(__filename);
 let mainWindow;
 
 // 1. ИНИЦИАЛИЗАЦИЯ
-const deviceId = getDeviceId();          
-const mqttClient = setupMqtt(deviceId);  
+const deviceId = getDeviceId();
 
-// 👇 ВАЖНОЕ ИЗМЕНЕНИЕ: Передаем () => mainWindow третьим аргументом
-setupGpio(deviceId, mqttClient, () => mainWindow); 
+// 👇 ВАЖНО: Передаем mainWindow, чтобы MQTT мог отправлять данные от Python на экран
+const mqttClient = setupMqtt(deviceId, () => mainWindow);
 
-setupIpc(deviceId);                      
-setupUpdater(() => mainWindow);          
+// ❌ УДАЛЕНО: setupGpio(...) — Теперь этим занимается Python!
+
+// 👇 ВАЖНО: Передаем mqttClient, чтобы React мог отправлять команды Python'у
+setupIpc(deviceId, mqttClient);
+
+setupUpdater(() => mainWindow);
 
 protocol.registerSchemesAsPrivileged([
   { scheme: "file", privileges: { standard: true, secure: true, allowServiceWorkers: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
@@ -35,7 +38,7 @@ function createWindow() {
     width,
     height,
     fullscreen: true,
-    kiosk: false, // Для тестов false, потом true
+    kiosk: false, // В продакшене поставь true
     frame: false,
     backgroundColor: "#000000",
     webPreferences: {
@@ -46,8 +49,8 @@ function createWindow() {
   });
 
   const isDev = process.env.NODE_ENV === "development";
-  const startUrl = isDev 
-    ? "http://localhost:5173" 
+  const startUrl = isDev
+    ? "http://localhost:5173"
     : `file://${path.join(__dirname, "dist", "index.html")}`;
 
   console.log("VECTOR OS Loading:", startUrl);
@@ -61,7 +64,7 @@ function createWindow() {
 app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
-  cleanupGpio(); // Останавливаем таймеры
+  // ❌ УДАЛЕНО: cleanupGpio() — Python сам разберется
   if (process.platform !== "darwin") app.quit();
 });
 
