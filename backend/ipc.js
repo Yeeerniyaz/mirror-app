@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow } from "electron";
 import { exec } from "child_process";
+import { loginYandex, getAliceStatus } from "./alice.js"; // Импорт контроллера Алисы
 
 export const setupIpc = (deviceId) => {
   
@@ -44,5 +45,23 @@ export const setupIpc = (deviceId) => {
       win.loadURL(data);
       win.on("closed", () => { win = null; });
     }
+  });
+
+  // 6. 🚧 ЗАГЛУШКИ ДЛЯ АЛИСЫ (Yandex Alice Stubs)
+  
+  // Запрос на вход
+  ipcMain.handle('alice:login', async () => {
+    return await loginYandex();
+  });
+
+  // Получение статуса
+  ipcMain.handle('alice:status', () => {
+    return getAliceStatus();
+  });
+
+  // Логаут
+  ipcMain.handle('alice:logout', () => {
+    console.log("🚧 ALICE: Выход");
+    return { success: true };
   });
 };

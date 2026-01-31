@@ -1,72 +1,46 @@
-import { useState, useEffect } from 'react';
-import { Button, Modal, Center, Text, Stack } from '@mantine/core';
-import { QRCodeSVG } from 'qrcode.react';
+import React from 'react';
+import { useAlice } from '../hooks/useAlice';
+import { Card, Group, Title, Badge, Text, Button, Alert, Code } from '@mantine/core';
 
-// Подключаем Electron (чтобы спросить Device ID)
-const { ipcRenderer } = window.require('electron');
-
-export const YandexAuth = () => {
-  const [opened, setOpened] = useState(false);
-  const [deviceId, setDeviceId] = useState('');
-
-  useEffect(() => {
-    // Спрашиваем ID у нашего нового main.js
-    ipcRenderer.invoke('get-device-id')
-      .then((id) => setDeviceId(id))
-      .catch((err) => console.error("Ошибка получения ID:", err));
-  }, []);
-
-  // Ссылка ведет на твой сервер (страница активации)
-  // Мы используем IP сервера, пока нет домена yeee.kz, или сам домен, если он настроен
-  const activateUrl = `http://alice.yeee.kz/activate?id=${deviceId}`;
+const YandexAuth = () => {
+  const { status, connectAlice, disconnectAlice, loading } = useAlice();
+  const isOnline = status === 'online';
 
   return (
-    <>
-      <Button 
-        onClick={() => setOpened(true)} 
-        color="red" 
-        variant="light"
+    <Card shadow="sm" padding="lg" radius="md" withBorder bg="dark.8">
+      <Group justify="space-between" mb="md">
+        <Title order={3} c="white">
+            <Text span c="red" inherit>Я</Text>ндекс Алиса
+        </Title>
+        <Badge color={isOnline ? 'green' : 'red'} variant="light" size="lg">
+          {isOnline ? 'ПОДКЛЮЧЕНО' : 'ОТКЛЮЧЕНО'}
+        </Badge>
+      </Group>
+
+      <Text c="dimmed" size="sm" mb="lg">
+        {isOnline
+          ? "Голосовое управление активно. Вы можете управлять зеркалом через умную колонку или приложение Яндекс."
+          : "Подключите Яндекс ID, чтобы управлять зеркалом голосом и видеть свой календарь."}
+      </Text>
+
+      <Button
         fullWidth
-        style={{ marginTop: 10, border: '1px solid rgba(255, 0, 0, 0.2)' }}
+        onClick={isOnline ? disconnectAlice : connectAlice}
+        loading={loading}
+        color={isOnline ? 'gray' : 'yellow'}
+        variant={isOnline ? 'outline' : 'filled'}
+        c={isOnline ? 'white' : 'black'}
       >
-        ПОДКЛЮЧИТЬ К АЛИСЕ 🎙
+        {isOnline ? 'Отключить аккаунт' : 'Войти через Яндекс'}
       </Button>
 
-      <Modal 
-        opened={opened} 
-        onClose={() => setOpened(false)} 
-        title="Активация устройства"
-        centered
-        styles={{ 
-            content: { backgroundColor: '#1A1B1E', color: 'white' }, 
-            header: { backgroundColor: '#1A1B1E', color: 'white' } 
-        }}
-      >
-        <Center style={{ flexDirection: 'column', gap: 20, padding: 20 }}>
-          
-          <div style={{ background: 'white', padding: '16px', borderRadius: '10px' }}>
-            {deviceId ? (
-              <QRCodeSVG 
-                value={activateUrl} 
-                size={200}
-                fgColor="#000000"
-                bgColor="#FFFFFF"
-              />
-            ) : (
-              <Text c="dimmed">Загрузка ID...</Text>
-            )}
-          </div>
-
-          <Stack gap={5} align="center">
-            <Text size="sm" fw={700}>ID: {deviceId}</Text>
-            <Text size="xs" c="dimmed" align="center">
-              Сканируйте код, чтобы<br/>
-              добавить зеркало в Умный Дом.
-            </Text>
-          </Stack>
-
-        </Center>
-      </Modal>
-    </>
+      {isOnline && (
+        <Alert title="Debug Mode" color="dark" mt="md" variant="light">
+           <Code block bg="transparent">STUB: Real OAuth is pending...</Code>
+        </Alert>
+      )}
+    </Card>
   );
 };
+
+export default YandexAuth;
