@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from "electron";
 import { exec } from "child_process";
-// 👇 Добавил logoutAlice в импорт
-import { loginYandex, getAliceStatus, logoutAlice } from "./alice.js"; 
+// 👇 Обновили импорт: убрали loginYandex, добавили requestPairingCode
+import { requestPairingCode, getAliceStatus, logoutAlice } from "./alice.js"; 
 
 export const setupIpc = (deviceId) => {
   
@@ -10,7 +10,6 @@ export const setupIpc = (deviceId) => {
 
   // 2. Курсор (мыши)
   ipcMain.on("set-cursor", (event, type) => {
-    // Отправляем обратно отправителю (окну)
     event.sender.send("cursor-changed", type);
   });
 
@@ -50,9 +49,9 @@ export const setupIpc = (deviceId) => {
 
   // 6. АЛИСА (Yandex Alice Integration)
   
-  // Запрос на вход (открывает окно)
-  ipcMain.handle('alice:login', async () => {
-    return await loginYandex();
+  // 👇 НОВОЕ: Запрос кода привязки (вместо открытия окна)
+  ipcMain.handle('alice:pair', async () => {
+    return await requestPairingCode();
   });
 
   // Получение статуса
@@ -60,7 +59,7 @@ export const setupIpc = (deviceId) => {
     return getAliceStatus();
   });
 
-  // Логаут (ТЕПЕРЬ НАСТОЯЩИЙ)
+  // Логаут
   ipcMain.handle('alice:logout', () => {
     return logoutAlice();
   });

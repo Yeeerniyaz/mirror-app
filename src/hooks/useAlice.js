@@ -7,37 +7,60 @@ export function useAlice() {
   const [status, setStatus] = useState("disconnected");
   const [loading, setLoading] = useState(false);
 
-  // Проверка статуса при загрузке страницы
   useEffect(() => {
     if (ipc) {
+      // 1. При загрузке проверяем текущий статус
       ipc.invoke('alice:status')
         .then((res) => setStatus(res?.status || "disconnected"))
         .catch((e) => console.error("Alice status err:", e));
+
+      // 2. 👇 СЛУШАЕМ СОБЫТИЯ (когда прилетит MQTT успех)
+      // Это сработает само, когда ты введешь код на телефоне
+      const handleStatusChange = (_event, newStatus) => {
+        console.log("⚡ Alice Status Updated via IPC:", newStatus);
+        setStatus(newStatus);
+      };
+
+      ipc.on('alice-status-changed', handleStatusChange);
+
+      // Чистим слушатель при размонтировании
+      return () => {
+        ipc.removeListener('alice-status-changed', handleStatusChange);
+      };
     }
   }, []);
 
-  // Функция входа (Login)
+  // Функция получения кода (Pairing)
   const connectAlice = async () => {
     setLoading(true);
+    let result = null;
+
     if (ipc) {
       try {
-        const res = await ipc.invoke('alice:login');
-        if (res && res.success) setStatus("online");
+        // Запрашиваем код у сервера через Electron
+        result = await ipc.invoke('alice:pair');
+        console.log("Hooks: Pair result", result);
       } catch (e) {
-        console.error("Alice login failed", e);
+        console.error("Alice pair failed", e);
       }
     } else {
-      // Заглушка для браузера (без Electron)
-      console.log("🚧 Browser Mode: Alice login simulation");
-      setTimeout(() => setStatus("online"), 1000);
+      // 🚧 Заглушка для браузера (тест без Electron)
+      console.log("🚧 Browser Mode: Fake Pairing Code");
+      // Имитируем задержку и выдачу кода
+      await new Promise(r => setTimeout(r, 1000));
+      result = { success: true, code: "123 456" };
     }
+    
     setLoading(false);
+    return result; // Возвращаем { success, code } в компонент
   };
 
   // Функция выхода (Logout)
   const disconnectAlice = async () => {
+    setLoading(true);
     if (ipc) await ipc.invoke('alice:logout');
     setStatus("disconnected");
+    setLoading(false);
   };
 
   return { status, connectAlice, disconnectAlice, loading };

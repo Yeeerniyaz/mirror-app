@@ -7,7 +7,6 @@ import { getDeviceId } from "./backend/identity.js";
 import { setupMqtt } from "./backend/mqtt.js";
 import { setupIpc } from "./backend/ipc.js";
 import { setupUpdater } from "./backend/updater.js";
-// ❌ УДАЛЕНО: import { setupGpio... } — Это больше не нужно!
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,12 +16,11 @@ let mainWindow;
 // 1. ИНИЦИАЛИЗАЦИЯ
 const deviceId = getDeviceId();
 
-// 👇 ВАЖНО: Передаем mainWindow, чтобы MQTT мог отправлять данные от Python на экран
-const mqttClient = setupMqtt(deviceId, () => mainWindow);
+// 👇 ИСПРАВЛЕНО: Передаем null, так как окно еще не создано.
+// (Наша версия mqtt.js пока не умеет работать с функцией-геттером)
+const mqttClient = setupMqtt(deviceId, null);
 
-// ❌ УДАЛЕНО: setupGpio(...) — Теперь этим занимается Python!
-
-// 👇 ВАЖНО: Передаем mqttClient, чтобы React мог отправлять команды Python'у
+// 👇 Передаем mqttClient, чтобы React мог отправлять команды Python'у
 setupIpc(deviceId, mqttClient);
 
 setupUpdater(() => mainWindow);
@@ -64,7 +62,6 @@ function createWindow() {
 app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
-  // ❌ УДАЛЕНО: cleanupGpio() — Python сам разберется
   if (process.platform !== "darwin") app.quit();
 });
 
