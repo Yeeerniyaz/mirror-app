@@ -1,16 +1,24 @@
 import mqtt from "mqtt";
 import { exec } from "child_process";
+import fetch from "node-fetch"; // В Electron/Node иногда нужен явный импорт
+import { getUserToken } from "./identity.js"; // 👈 Импортируем получение токена
 
 // 👇 АДРЕС ТВОЕГО БРОКЕРА
 const MQTT_BROKER = "mqtt://82.115.43.240:1883";
 // 👇 АДРЕС PYTHON-МОСТА (Локальный сервер на Малине)
-const PYTHON_API = "http://localhost:5005/api";
+const PYTHON_API = "http://localhost:5005";
 
-export const setupMqtt = (deviceId, getMainWindow) => {
-  console.log('☁️ Connecting to Vector Cloud (82.115.43.240)...');
+export const setupMqtt = (deviceId) => {
+  const token = getUserToken(); // 👈 Берем сохраненный токен
   
+  console.log(`☁️ Connecting to Vector Cloud [${deviceId}]...`);
+  if (token) console.log("🔑 Auth Token Found");
+
+  // Подключение с авторизацией (если есть токен)
   const client = mqtt.connect(MQTT_BROKER, {
-    reconnectPeriod: 5000
+    reconnectPeriod: 5000,
+    username: deviceId, // Обычно deviceId используется как username
+    password: token || "anon" // Если токен есть, шлем его, иначе "anon"
   });
 
   client.on('connect', () => {
@@ -23,34 +31,47 @@ export const setupMqtt = (deviceId, getMainWindow) => {
     const msgStr = message.toString();
     console.log(`📩 Cloud Command: ${msgStr}`);
 
-    // --- 1. ЭКРАН (Оставляем в Electron, это системные команды) ---
+    // --- 1. ЭКРАН (Системные команды Raspberry Pi) ---
     if (msgStr === 'ON') exec('vcgencmd display_power 1');
     if (msgStr === 'OFF') exec('vcgencmd display_power 0');
 
-    // --- 2. ПЕРЕЗАГРУЗКА (Через Python надежнее, у него sudo) ---
+    // --- 2. ПЕРЕЗАГРУЗКА ---
     if (msgStr === 'REBOOT') {
        sendCommandToPython('/system/reboot', {}, 'POST');
     }
 
-    // --- 3. ЛЕНТА (Пересылаем команду Питону) ---
-    // Команда приходит вида: "LED_COLOR:255,165,0" или "LED_OFF"
+    // --- 3. ЛЕНТА (Пересылаем команду Питону в формате для ESP32) ---
     
+    // Команда выключения
     if (msgStr === 'LED_OFF') {
-        sendCommandToPython('/led', { state: 'OFF' });
+        sendCommandToPython('/api/led', { mode: 'OFF' });
     }
     
+    // Команда цвета: "LED_COLOR:255,165,0"
     if (msgStr.startsWith('LED_COLOR:')) {
         try {
-            // Парсим "255,165,0"
             const rgbStr = msgStr.split(':')[1]; 
             const [r, g, b] = rgbStr.split(',').map(Number);
-            const hex = rgbToHex(r, g, b); // Превращаем в #FFA500
             
-            // Отправляем приказ Питону
-            sendCommandToPython('/led', { state: 'ON', color: hex });
+            // Отправляем массив [r, g, b], как ждет ESP32 (через Python Bridge)
+            sendCommandToPython('/api/led', { 
+                mode: 'STATIC', 
+                color: [r, g, b],
+                bright: 1.0 
+            });
         } catch (e) {
             console.error("Ошибка парсинга цвета:", e);
         }
+    }
+
+    // Команда режима: "LED_MODE:RAINBOW"
+    if (msgStr.startsWith('LED_MODE:')) {
+        const mode = msgStr.split(':')[1]; // RAINBOW, POLICE, METEOR, FIRE
+        sendCommandToPython('/api/led', { 
+            mode: mode, 
+            speed: 50,
+            bright: 0.8
+        });
     }
   });
 
@@ -59,23 +80,15 @@ export const setupMqtt = (deviceId, getMainWindow) => {
   return client;
 };
 
-// --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
-
-// Функция отправки приказа Питону
-async function sendCommandToPython(endpoint, body, method = 'POST') {
+// --- ОТПРАВКА В PYTHON ---
+async function sendCommandToPython(endpoint, body) {
     try {
         await fetch(`${PYTHON_API}${endpoint}`, {
-            method,
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
     } catch (e) {
-        // Ошибки связи не должны ломать приложение, просто пишем в лог
-        console.error(`Ошибка отправки в Python (${endpoint}):`, e.message);
+        console.error(`Ошибка связи с Python Bridge (${endpoint}):`, e.message);
     }
-}
-
-// Конвертер RGB в HEX (Python ждет HEX)
-function rgbToHex(r, g, b) {
-  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
 }

@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow } from "electron";
 import { exec } from "child_process";
-import { loginYandex, getAliceStatus } from "./alice.js"; // Импорт контроллера Алисы
+// 👇 Добавил logoutAlice в импорт
+import { loginYandex, getAliceStatus, logoutAlice } from "./alice.js"; 
 
 export const setupIpc = (deviceId) => {
   
@@ -47,9 +48,9 @@ export const setupIpc = (deviceId) => {
     }
   });
 
-  // 6. 🚧 ЗАГЛУШКИ ДЛЯ АЛИСЫ (Yandex Alice Stubs)
+  // 6. АЛИСА (Yandex Alice Integration)
   
-  // Запрос на вход
+  // Запрос на вход (открывает окно)
   ipcMain.handle('alice:login', async () => {
     return await loginYandex();
   });
@@ -59,9 +60,8 @@ export const setupIpc = (deviceId) => {
     return getAliceStatus();
   });
 
-  // Логаут
+  // Логаут (ТЕПЕРЬ НАСТОЯЩИЙ)
   ipcMain.handle('alice:logout', () => {
-    console.log("🚧 ALICE: Выход");
-    return { success: true };
+    return logoutAlice();
   });
 };
