@@ -1,12 +1,9 @@
 import mqtt from "mqtt";
 import { exec } from "child_process";
 
-// ❌ УБРАЛИ: import { controlLed } from "./gpio.js"; 
-// Теперь мы не трогаем железо напрямую!
-
 // 👇 АДРЕС ТВОЕГО БРОКЕРА
 const MQTT_BROKER = "mqtt://82.115.43.240:1883";
-// 👇 АДРЕС PYTHON-МОСТА (Локальный)
+// 👇 АДРЕС PYTHON-МОСТА (Локальный сервер на Малине)
 const PYTHON_API = "http://localhost:5005/api";
 
 export const setupMqtt = (deviceId, getMainWindow) => {
@@ -26,17 +23,16 @@ export const setupMqtt = (deviceId, getMainWindow) => {
     const msgStr = message.toString();
     console.log(`📩 Cloud Command: ${msgStr}`);
 
-    // --- 1. ЭКРАН (Можно оставить в Electron, это просто консольные команды) ---
+    // --- 1. ЭКРАН (Оставляем в Electron, это системные команды) ---
     if (msgStr === 'ON') exec('vcgencmd display_power 1');
     if (msgStr === 'OFF') exec('vcgencmd display_power 0');
 
-    // --- 2. ПЕРЕЗАГРУЗКА (Через Python или exec - оба варианта ок) ---
+    // --- 2. ПЕРЕЗАГРУЗКА (Через Python надежнее, у него sudo) ---
     if (msgStr === 'REBOOT') {
-       // exec('sudo reboot'); // Можно так
-       sendCommandToPython('/system/reboot', {}, 'POST'); // А можно через Python
+       sendCommandToPython('/system/reboot', {}, 'POST');
     }
 
-    // --- 3. ЛЕНТА (Обязательно через Python!) ---
+    // --- 3. ЛЕНТА (Пересылаем команду Питону) ---
     // Команда приходит вида: "LED_COLOR:255,165,0" или "LED_OFF"
     
     if (msgStr === 'LED_OFF') {
@@ -44,9 +40,9 @@ export const setupMqtt = (deviceId, getMainWindow) => {
     }
     
     if (msgStr.startsWith('LED_COLOR:')) {
-        // Парсим "255,165,0"
         try {
-            const rgbStr = msgStr.split(':')[1]; // "255,165,0"
+            // Парсим "255,165,0"
+            const rgbStr = msgStr.split(':')[1]; 
             const [r, g, b] = rgbStr.split(',').map(Number);
             const hex = rgbToHex(r, g, b); // Превращаем в #FFA500
             
@@ -74,6 +70,7 @@ async function sendCommandToPython(endpoint, body, method = 'POST') {
             body: JSON.stringify(body)
         });
     } catch (e) {
+        // Ошибки связи не должны ломать приложение, просто пишем в лог
         console.error(`Ошибка отправки в Python (${endpoint}):`, e.message);
     }
 }
