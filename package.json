@@ -1,6 +1,6 @@
 {
   "name": "vector-standalone",
-  "version": "2.0.96",
+  "version": "2.0.103",
   "description": "Smart Mirror VECTOR Offline Standalone App",
   "author": "Yerniyaz",
   "main": "main.js",
@@ -10,7 +10,8 @@
     "build": "vite build",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder --linux --arm64 -p always",
-    "deploy": "node deploy.cjs"
+    "deploy": "node deploy.cjs",
+    "deploy:pi": "node deploy-local.cjs"
   },
   "dependencies": {
     "@mantine/core": "^7.0.0",

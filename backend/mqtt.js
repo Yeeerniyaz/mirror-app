@@ -101,7 +101,7 @@ function startSensorLoop(client, deviceId) {
         try {
             // 1. Спрашиваем у Python данные датчиков
             // ⚠️ ВАЖНО: Проверь, что в Python endpoint именно /api/state, а не /api/sensors
-            const res = await fetch(`${PYTHON_API}/api/state`); 
+            const res = await fetch(`${PYTHON_API}/api/sensors`); 
             
             if (res.ok) {
                 const data = await res.json();
