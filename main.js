@@ -5,10 +5,11 @@ import { spawn } from "child_process"; // Для запуска Python
 import { fileURLToPath } from "url";
 
 // --- МИКРОСЕРВИСЫ ---
-import { getDeviceId } from "./backend/identity.js"; //
-import { setupMqtt } from "./backend/mqtt.js"; //
-import { setupIpc } from "./backend/ipc.js"; //
-import { setupUpdater } from "./backend/updater.js"; //
+import { getDeviceId } from "./backend/identity.js"; 
+import { setupMqtt } from "./backend/mqtt.js"; 
+import { setupIpc } from "./backend/ipc.js"; 
+import { setupUpdater } from "./backend/updater.js";
+import { setupBle } from "./backend/ble.js"; // 💎 НОВОЕ: Импорт BLE менеджера
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -65,7 +66,8 @@ let mainWindow;
 // 1. ИНИЦИАЛИЗАЦИЯ
 const deviceId = getDeviceId(); // Получаем уникальный ID
 ensureConfigExists(deviceId);   // Сначала создаем файл настроек
-startPythonBridge();            // Затем запускаем Python, чтобы он его прочитал
+startPythonBridge();            // Запускаем Python (для датчиков и системы)
+setupBle();                     // 💎 НОВОЕ: Запускаем прямой поиск ESP32 для управления светом
 
 // Настройка связи
 const mqttClient = setupMqtt(deviceId, null); //

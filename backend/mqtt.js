@@ -1,11 +1,12 @@
 import mqtt from "mqtt";
 import { exec } from "child_process";
 import fetch from "node-fetch"; 
-import { getUserToken, saveUserToken } from "./identity.js"; // ⚠️ Убедись, что saveUserToken есть в identity.js
+import { getUserToken, saveUserToken } from "./identity.js";
+import { sendBleCommand } from "./ble.js"; // 💎 ИМПОРТ ФУНКЦИИ BLE
 
 // 👇 АДРЕС ТВОЕГО БРОКЕРА
 const MQTT_BROKER = "mqtt://82.115.43.240:1883";
-// 👇 АДРЕС PYTHON-МОСТА
+// 👇 АДРЕС PYTHON-МОСТА (оставляем для датчиков)
 const PYTHON_API = "http://localhost:5005";
 
 let sensorInterval = null;
@@ -47,9 +48,7 @@ export const setupMqtt = (deviceId, mainWindow) => {
             const data = JSON.parse(msgStr);
             if (data.type === 'AUTH_SUCCESS') {
                 console.log("🔓 MQTT Auth Success!");
-                // Сохраняем токен (флаг), что мы привязаны
                 saveUserToken("LINKED_VIA_CLOUD");
-                // Если передали окно, шлем событие в React
                 if (mainWindow) mainWindow.webContents.send('alice-status-changed', 'online');
             }
         } catch (e) { console.error("Auth Error:", e); }
@@ -62,29 +61,37 @@ export const setupMqtt = (deviceId, mainWindow) => {
     // --- 2. ПЕРЕЗАГРУЗКА ---
     if (msgStr === 'REBOOT') sendCommandToPython('/system/reboot', { action: 'reboot' });
 
-    // --- 3. ЛЕНТА (LED) ---
-    // Выключение
-    if (msgStr === 'LED_OFF') sendCommandToPython('/api/led', { mode: 'OFF' });
+    // --- 3. ЛЕНТА (LED) -> ТЕПЕРЬ ЧЕРЕЗ BLE 💎 ---
     
-    // Яркость
+    // Выключение
+    if (msgStr === 'LED_OFF') {
+        sendBleCommand('OFF'); 
+    }
+    
+    // Яркость (ESP32 пока не поддерживает команду яркости через BLE,
+    // но если допишешь в main.py, можно будет раскомментировать)
+    /*
     if (msgStr.startsWith('LED_BRIGHT:')) {
         const val = parseInt(msgStr.split(':')[1]);
-        sendCommandToPython('/api/led', { bright: val / 100 });
+        // sendBleCommand({ brightness: val }); // Нужно добавить поддержку в ESP32
     }
+    */
 
     // Цвет
     if (msgStr.startsWith('LED_COLOR:')) {
         try {
             const rgbStr = msgStr.split(':')[1]; 
             const [r, g, b] = rgbStr.split(',').map(Number);
-            sendCommandToPython('/api/led', { mode: 'STATIC', color: [r, g, b], bright: 1.0 });
+            // Отправляем JSON, как ждет ESP32
+            sendBleCommand({ color: [r, g, b] });
         } catch (e) { console.error("Color Error:", e); }
     }
 
-    // Режимы
+    // Режимы (FIRE, RAINBOW, POLICE...)
     if (msgStr.startsWith('LED_MODE:')) {
         const mode = msgStr.split(':')[1];
-        sendCommandToPython('/api/led', { mode: mode, speed: 50, bright: 0.8 });
+        // Отправляем название режима текстом
+        sendBleCommand(mode);
     }
   });
 
@@ -99,8 +106,7 @@ function startSensorLoop(client, deviceId) {
 
     sensorInterval = setInterval(async () => {
         try {
-            // 1. Спрашиваем у Python данные датчиков
-            // ⚠️ ВАЖНО: Проверь, что в Python endpoint именно /api/state, а не /api/sensors
+            // 1. Спрашиваем у Python данные датчиков (CO2, Temp и т.д.)
             const res = await fetch(`${PYTHON_API}/api/sensors`); 
             
             if (res.ok) {
@@ -116,10 +122,9 @@ function startSensorLoop(client, deviceId) {
 
                 // 2. Отправляем в Облако
                 client.publish(`vector/${deviceId}/state`, JSON.stringify(payload));
-                // console.log("📡 Sensors sent to Cloud");
             }
         } catch (e) {
-            // Тихо игнорируем ошибки связи, чтобы не засорять консоль
+            // Тихо игнорируем ошибки связи с локальным Python-сервером
         }
     }, 30000); // 30 секунд
 }
