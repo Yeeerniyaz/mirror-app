@@ -1,148 +1,131 @@
 import React from 'react';
-import { Container, Stack, Title, Text, Group, Box, UnstyledButton, Center } from "@mantine/core";
-import { RefreshCw, LogOut, Power, Cpu, Settings as SettingsIcon, ChevronRight, Wifi, Lightbulb } from "lucide-react";
-
-// Импорт наших новых компонентов
+import { Container, Stack, Title, Text, Group, Box, UnstyledButton } from "@mantine/core";
+import { Wifi, RefreshCw, Power, ChevronRight, Terminal } from "lucide-react";
 import YandexAuth from '../components/YandexAuth';
-import LedControl from '../components/LedControl';
+
+// БАТЫРМА КОМПОНЕНТІ (Өзгеріссіз)
+const SettingItem = ({ icon: Icon, title, desc, onClick, danger = false }) => {
+  return (
+    <UnstyledButton 
+      onClick={onClick}
+      style={{
+        width: '100%',
+        padding: '20px 24px',
+        backgroundColor: '#000',
+        border: '1px solid #222',
+        borderRadius: '8px',
+        transition: 'all 0.2s ease',
+      }}
+      // Hover
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = danger ? 'white' : 'white';
+        e.currentTarget.style.backgroundColor = danger ? '#300' : '#111';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = '#222';
+        e.currentTarget.style.backgroundColor = '#000';
+      }}
+    >
+      <Group justify="space-between" wrap="nowrap">
+        <Group gap="lg">
+          <Icon size={24} color={danger ? "#666" : "white"} strokeWidth={1.5} />
+          <Stack gap={2}>
+            <Text c="white" fw={700} tt="uppercase" size="sm" style={{ letterSpacing: '2px' }}>
+              {title}
+            </Text>
+            {desc && (
+              <Text c="dimmed" size="xs" style={{ fontSize: '12px' }}>
+                {desc}
+              </Text>
+            )}
+          </Stack>
+        </Group>
+        <ChevronRight size={20} color="#333" />
+      </Group>
+    </UnstyledButton>
+  );
+};
 
 export const Settings = ({ 
   sendCmd, 
   updateMirror, 
-  updatePython, 
-  appVersion,
-  user, 
-  onLogout,
+  appVersion, 
   openWifiSettings 
 }) => {
 
-  const SettingRow = ({ icon: Icon, label, description, onClick, actionLabel, danger = false }) => (
-    <UnstyledButton 
-      onClick={onClick} 
-      style={{ 
-        padding: '16px 20px', 
-        borderRadius: '4px', 
-        backgroundColor: '#050505',
-        border: '1px solid #111',
-        transition: 'background 0.2s',
-        width: '100%'
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0a0a0a'}
-      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#050505'}
-    >
-      <Group justify="space-between" wrap="nowrap">
-        <Group gap="xl">
-          <Icon size={20} color={danger ? "#ff4444" : "white"} strokeWidth={1.5} />
-          <Stack gap={0}>
-            <Text fw={700} size="sm" c="white" style={{ letterSpacing: '1px' }}>
-              {label.toUpperCase()}
-            </Text>
-            <Text size="xs" c="dimmed">{description}</Text>
-          </Stack>
-        </Group>
-        <Group gap="xs">
-          {actionLabel && (
-            <Text size="xs" fw={800} c={danger ? "red" : "white"} style={{ letterSpacing: '1px' }}>
-              {actionLabel}
-            </Text>
-          )}
-          <ChevronRight size={16} color="#222" />
-        </Group>
-      </Group>
-    </UnstyledButton>
-  );
-
   return (
-    <Container
-      fluid
-      p="60px"
-      style={{ width: "100vw", height: "100vh", backgroundColor: "#000", color: "#fff", overflowY: 'auto', overflowX: 'hidden' }}
+    <Container 
+      fluid 
+      h="100vh" 
+      bg="black" 
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
     >
-      <Stack gap="xl" style={{ maxWidth: '700px', margin: '0 auto', paddingBottom: '100px' }}>
-        
-        {/* Хедер терминала */}
-        <Group justify="space-between" mb="30px">
-          <Stack gap={0}>
-            <Title order={2} style={{ fontSize: '24px', fontWeight: 200, letterSpacing: '10px', textTransform: 'uppercase' }}>
-              Configuration
+      {/* maw={750} - Ені 750px.
+         Блок экран ортасында, бірақ ішіндегі мәтін СОЛ ЖАҚТА.
+      */}
+      <Stack w="100%" maw={750} gap="xl" p="md">
+
+        {/* 1. HEADER (LEFT ALIGNED) */}
+        {/* align="center" дегенді алып тастадым */}
+        <Stack gap={4} mb="md">
+            <Title 
+              order={2} 
+              c="white" 
+              fw={300} 
+              style={{ fontSize: '28px', letterSpacing: '10px', textTransform: 'uppercase' }}
+            >
+              КОНФИГУРАЦИЯ
             </Title>
-            <Text size="xs" c="dimmed" style={{ letterSpacing: '3px' }}>VECTOR OS TERMINAL</Text>
-          </Stack>
-          <SettingsIcon size={24} opacity={0.2} />
-        </Group>
+            <Group gap="xs">
+              <Terminal size={14} color="#444" />
+              <Text c="dimmed" size="xs" fw={700} style={{ letterSpacing: '4px', fontSize: '11px' }}>
+                VECTOR OS v{appVersion || "DEV"}
+              </Text>
+            </Group>
+        </Stack>
 
-        {/* 1. LIGHTING CONTROL (НОВЫЙ БЛОК) */}
+        {/* 2. YANDEX БЛОГЫ */}
         <Box>
-           <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>AMBIENT LIGHT</Text>
-           <LedControl />
+            {/* ta="center" дегенді алып тастадым (default: left) */}
+            <Text c="dimmed" size="xs" tt="uppercase" fw={700} ls={2} mb="xs">
+                Голосовой Ассистент
+            </Text>
+            <YandexAuth />
         </Box>
 
-        {/* 2. PROFILE SECTION */}
+        {/* 3. СИСТЕМНЫЕ НАСТРОЙКИ */}
         <Box>
-          <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>PROFILE & CLOUD</Text>
-          <Stack gap="xs">
-             {/* Яндекс Авторизация */}
-             <YandexAuth />
+            {/* Мәтін сол жақта */}
+            <Text c="dimmed" size="xs" tt="uppercase" fw={700} ls={2} mb="xs">
+                Система
+            </Text>
+            <Stack gap="sm">
+                
+                <SettingItem 
+                    icon={Wifi}
+                    title="WI-FI Подключение"
+                    desc="Управление беспроводной сетью"
+                    onClick={openWifiSettings}
+                />
 
-             {user && (
-              <SettingRow 
-                icon={LogOut} 
-                label={user.name} 
-                description="Управление сессией пользователя" 
-                actionLabel="ВЫЙТИ" 
-                onClick={onLogout}
-                danger
-              />
-            )}
-          </Stack>
+                <SettingItem 
+                    icon={RefreshCw}
+                    title="Обновить Интерфейс"
+                    desc="Загрузка последней версии (Git Pull)"
+                    onClick={updateMirror}
+                />
+
+                <SettingItem 
+                    icon={Power}
+                    title="Перезагрузка"
+                    desc="Полный рестарт системы"
+                    danger={true}
+                    onClick={() => window.confirm("Перезагрузить систему?") && sendCmd("reboot")}
+                />
+
+            </Stack>
         </Box>
 
-        {/* 3. NETWORK & SYSTEM SECTION */}
-        <Box>
-          <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>NETWORK & SYSTEM</Text>
-          <Stack gap="xs">
-            <SettingRow 
-              icon={Wifi} 
-              label="Параметры Wi-Fi" 
-              description="Настройка беспроводной сети через систему" 
-              onClick={openWifiSettings}
-              actionLabel="SYSTEM"
-            />
-            <SettingRow 
-              icon={Power} 
-              label="Рестарт системы" 
-              description="Полная перезагрузка Raspberry Pi" 
-              onClick={() => window.confirm("REBOOT SYSTEM?") && sendCmd("reboot")}
-            />
-          </Stack>
-        </Box>
-
-        {/* 4. MAINTENANCE SECTION */}
-        <Box>
-          <Text fw={900} size="xs" c="dimmed" mb="md" style={{ letterSpacing: '2px', opacity: 0.5 }}>MAINTENANCE</Text>
-          <Stack gap="xs">
-            <SettingRow 
-              icon={Cpu} 
-              label="Обновить ядро моста"
-              description="Перезагрузка Python-скриптов и Git pull" 
-              onClick={updatePython}
-              actionLabel="REBUILD"
-            />
-            <SettingRow 
-              icon={RefreshCw} 
-              label="Обновление системы" 
-              description={`Текущая ревизия: ${appVersion}`} 
-              onClick={updateMirror}
-            />
-          </Stack>
-        </Box>
-
-        {/* Копирайт */}
-        <Center mt="xl">
-          <Text size="xs" style={{ letterSpacing: '4px', color: '#222', fontWeight: 700 }}>
-            REV_{appVersion ? appVersion.replace(/\./g, '_') : 'DEV'} // YEEE.KZ
-          </Text>
-        </Center>
       </Stack>
     </Container>
   );

@@ -1,125 +1,197 @@
 import React, { useState, useEffect } from 'react';
 import { useAlice } from '../hooks/useAlice';
-import { Card, Group, Title, Badge, Text, Button, Stack, Loader } from '@mantine/core';
+import { Card, Group, Title, Badge, Text, Button, Stack, Loader, Center, Paper, rem } from '@mantine/core';
+import { IconBrandYandex, IconUnlink, IconLink, IconDeviceMobile } from '@tabler/icons-react';
 
 const YandexAuth = () => {
   const { status, connectAlice, disconnectAlice, loading } = useAlice();
-  const [code, setCode] = useState(null); // Здесь храним цифры (123 456)
+  const [code, setCode] = useState(null); 
   const isOnline = status === 'online';
 
-  // Если вдруг статус стал online (через MQTT), убираем код
+  // Егер статус "online" болып өзгерсе, кодты алып тастаймыз
   useEffect(() => {
     if (isOnline) setCode(null);
   }, [isOnline]);
 
   const handleGetCode = async () => {
-    // Вызываем connectAlice, который теперь стучится в alice:pair
-    // И ждем от него объект { success: true, code: "..." }
     const result = await connectAlice();
-    
     if (result && result.success && result.code) {
       setCode(result.code);
     }
   };
 
-  // Красивое форматирование: 123456 -> 123 456
+  // Кодты әдемілеу (Мысалы: 123 456)
   const formatCode = (c) => {
     return c ? c.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") : "";
   };
 
   return (
-    <Card shadow="sm" padding="lg" radius="md" withBorder bg="dark.8">
-      {/* Шапка карточки */}
-      <Group justify="space-between" mb="md">
-        <Title order={3} c="white">
-            <Text span c="red" inherit>Я</Text>ндекс Алиса
-        </Title>
-        <Badge color={isOnline ? 'green' : 'red'} variant="light" size="lg">
-          {isOnline ? 'ПОДКЛЮЧЕНО' : 'ОТКЛЮЧЕНО'}
-        </Badge>
-      </Group>
-
-      {/* Основной контент */}
-      <Stack align="center" gap="xs" mb="lg">
-        
-        {/* 1. Если не подключено и кода нет */}
-        {!isOnline && !code && (
-           <Text c="dimmed" size="sm" ta="center">
-             Чтобы управлять зеркалом голосом, добавьте его в Умный Дом Яндекса.
-           </Text>
-        )}
-
-        {/* 2. Если код есть — ПОКАЗЫВАЕМ ЕГО */}
-        {!isOnline && code && (
-            <>
-                <Text c="dimmed" size="xs" tt="uppercase" fw={700}>
-                    Введите код в приложении Яндекс:
-                </Text>
-                
-                <Title order={1} c="yellow" style={{ fontSize: 42, letterSpacing: 2 }}>
-                    {formatCode(code)}
+    <Card 
+        shadow="none" 
+        padding="lg" 
+        radius="lg" 
+        bg="black" 
+        withBorder 
+        style={{ 
+            borderColor: '#333', 
+            height: '100%', 
+            display: 'flex', 
+            flexDirection: 'column',
+            justifyContent: 'space-between'
+        }}
+    >
+      
+      {/* 1. HEADER */}
+      <Stack gap="xs">
+        <Group justify="space-between">
+            <Group gap="xs">
+                {/* Ақ түсті Яндекс логотипі */}
+                <IconBrandYandex size={24} color="white" />
+                <Title order={4} c="white" tt="uppercase" ls={1} fw={800}>
+                    YANDEX
                 </Title>
-                
-                <Text c="dimmed" size="xs" ta="center">
-                    (Дом с Алисой → + → Устройство умного дома → Vector)
-                </Text>
-                
-                {/* Анимация ожидания */}
-                <Loader color="yellow" type="dots" size="sm" mt="xs" />
-            </>
-        )}
-
-        {/* 3. Если подключено */}
-        {isOnline && (
-            <Text c="green.4" size="sm" ta="center">
-                Зеркало успешно привязано к вашему аккаунту. 
-                Попробуйте сказать: "Алиса, включи подсветку".
-            </Text>
-        )}
+            </Group>
+            
+            {/* Статус индикаторы (Ақ/Сұр) */}
+            <Badge 
+                color={isOnline ? "white" : "dark"} 
+                variant={isOnline ? "white" : "outline"} 
+                size="sm" 
+                radius="sm"
+                styles={{ root: { color: isOnline ? 'black' : '#666', borderColor: '#333' } }}
+            >
+                {isOnline ? 'ПОДКЛЮЧЕНО' : 'НЕ В СЕТИ'}
+            </Badge>
+        </Group>
+        
+        {/* Астыңғы сызық */}
+        <Paper h={1} bg="#222" w="100%" />
       </Stack>
 
-      {/* Кнопки действий */}
-      
-      {/* Кнопка получения кода */}
-      {!code && !isOnline && (
+      {/* 2. MAIN CONTENT AREA */}
+      <Stack align="center" justify="center" style={{ flex: 1 }} py="xl">
+        
+        {/* A. OFFLINE & NO CODE */}
+        {!isOnline && !code && (
+           <>
+             <IconDeviceMobile size={48} color="#333" stroke={1.5} />
+             <Text c="dimmed" size="sm" ta="center" px="md">
+               Для голосового управления<br/>требуется привязка аккаунта
+             </Text>
+           </>
+        )}
+
+        {/* B. SHOWING CODE */}
+        {!isOnline && code && (
+            <Stack gap="xs" align="center" w="100%">
+                <Text c="dimmed" size="xs" tt="uppercase" fw={700} ls={1}>
+                    КОД ПОДКЛЮЧЕНИЯ
+                </Text>
+                
+                {/* Кодты үлкен, контрасты қылып көрсету */}
+                <Paper 
+                    p="sm" 
+                    bg="white" 
+                    radius="md" 
+                    w="100%" 
+                    style={{ textAlign: 'center' }}
+                >
+                    <Title 
+                        order={1} 
+                        c="black" 
+                        style={{ 
+                            fontSize: rem(36), 
+                            fontFamily: 'monospace', 
+                            letterSpacing: '4px',
+                            fontWeight: 900
+                        }}
+                    >
+                        {formatCode(code)}
+                    </Title>
+                </Paper>
+                
+                <Group gap={5} mt={5}>
+                    <Loader color="gray" type="dots" size="xs" />
+                    <Text c="dimmed" size="xs">Ожидание подтверждения...</Text>
+                </Group>
+            </Stack>
+        )}
+
+        {/* C. ONLINE (SUCCESS) */}
+        {isOnline && (
+            <Stack gap="sm" align="center">
+                <IconLink size={48} color="white" stroke={1} />
+                <Stack gap={0} align="center">
+                    <Text c="white" size="lg" fw={700}>СВЯЗЬ УСТАНОВЛЕНА</Text>
+                    <Text c="dimmed" size="sm" ta="center">
+                        Теперь вы можете управлять<br/>зеркалом через Алису
+                    </Text>
+                </Stack>
+            </Stack>
+        )}
+
+      </Stack>
+
+      {/* 3. FOOTER ACTIONS */}
+      <Stack gap="sm">
+        
+        {/* Кнопка: ПОДКЛЮЧИТЬ (Get Code) */}
+        {!code && !isOnline && (
           <Button
             fullWidth
             onClick={handleGetCode}
             loading={loading}
-            color="yellow"
-            variant="filled"
+            variant="white" // Ақ түйме - назар аудару үшін
             c="black"
+            h={45}
+            radius="md"
+            styles={{ root: { fontWeight: 700 } }}
+            leftSection={<IconLink size={18} />}
           >
-            Подключить
+            СВЯЗАТЬ УСТРОЙСТВО
           </Button>
-      )}
+        )}
 
-      {/* Кнопка отмены (если передумал вводить код) */}
-      {code && !isOnline && (
-           <Button
-             fullWidth
-             onClick={() => setCode(null)}
-             variant="subtle"
-             color="gray"
-             size="xs"
-           >
-             Отмена
-           </Button>
-      )}
+        {/* Кнопка: ОТМЕНА (Cancel Code) */}
+        {code && !isOnline && (
+            <Button
+              fullWidth
+              onClick={() => setCode(null)}
+              variant="outline"
+              color="gray"
+              size="sm"
+              h={40}
+              styles={{ root: { borderColor: '#333', color: '#888', '&:hover': { color: 'white', borderColor: 'white' } } }}
+            >
+              ОТМЕНА
+            </Button>
+        )}
 
-      {/* Кнопка выхода */}
-      {isOnline && (
-        <Button
-          fullWidth
-          onClick={disconnectAlice}
-          loading={loading}
-          color="gray"
-          variant="outline"
-          c="white"
-        >
-          Отвязать устройство
-        </Button>
-      )}
+        {/* Кнопка: ОТКЛЮЧИТЬ (Disconnect) */}
+        {isOnline && (
+            <Button
+              fullWidth
+              onClick={disconnectAlice}
+              loading={loading}
+              variant="outline"
+              color="gray" // Сұр, көзге қатты ұрмайды
+              h={40}
+              radius="md"
+              styles={{ 
+                  root: { 
+                      borderColor: '#333', 
+                      color: '#666',
+                      transition: 'all 0.2s',
+                      '&:hover': { borderColor: 'white', color: 'white', backgroundColor: '#111' }
+                  } 
+              }}
+              leftSection={<IconUnlink size={16} />}
+            >
+              ОТКЛЮЧИТЬ
+            </Button>
+        )}
+      </Stack>
+
     </Card>
   );
 };

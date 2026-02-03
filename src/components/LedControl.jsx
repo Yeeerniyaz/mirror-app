@@ -1,144 +1,228 @@
 import React, { useState } from 'react';
 import { useLed } from '../hooks/useLed';
-import { Card, Text, SimpleGrid, Button, Group, ColorInput, Slider, Stack, Title, ActionIcon, Grid } from '@mantine/core';
-import { IconBrightness, IconGauge, IconPalette, IconPower } from '@tabler/icons-react';
+import { 
+  Container, Text, SimpleGrid, Button, Group, Slider, Stack, 
+  Title, ColorPicker, rem, Box, Paper, Loader, Divider 
+} from '@mantine/core';
+import { 
+  IconBrightness, IconGauge, IconPower, 
+  IconLayoutGrid, IconColorPicker, IconTerminal 
+} from '@tabler/icons-react';
 
 const LedControl = () => {
+  // 1. HOOK
   const { setMode, setColor, setBrightness, setSpeed, turnOff, loading } = useLed();
-  const [colorValue, setColorValue] = useState('#ffffff');
+   
+  const [activeColor, setActiveColor] = useState('#ffffff');
+  const [activeMode, setActiveMode] = useState('');
 
-  const handleColorChange = (hex) => {
-    setColorValue(hex);
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
+  const mySwatches = [
+    '#ffffff', '#ff0000', '#00ff00', '#0000ff', 
+    '#ffff00', '#00ffff', '#ff00ff', '#fd7e14', 
+    '#862e9c', '#be4bdb', '#228be6', '#fab005'
+  ];
+
+  const modes = [
+    { id: 'GEMINI', label: 'GEMINI AI', type: 'pro' },
+    { id: 'SCANNER', label: 'СКАНЕР', type: 'pro', needsColor: true },
+    { id: 'BREATHING', label: 'ДЫХАНИЕ', type: 'pro', needsColor: true },
+    { id: 'STROBE', label: 'СТРОБО', type: 'pro' },
+    { id: 'FIRE', label: 'ОГОНЬ', type: 'classic' },
+    { id: 'STARS', label: 'ЗВЕЗДЫ', type: 'classic' },
+    { id: 'METEOR', label: 'МЕТЕОР', type: 'classic' },
+    { id: 'RAINBOW', label: 'РАДУГА', type: 'classic' },
+    { id: 'POLICE', label: 'ПОЛИЦИЯ', type: 'classic' },
+    { id: 'STATIC', label: 'СТАТИКА', type: 'basic', needsColor: true },
+  ];
+
+  // --- ЛОГИКА ---
+  const handleColorChange = (val) => {
+    setActiveColor(val);
+  };
+
+  const sendColorToServer = (color) => {
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
     setColor(r, g, b);
   };
 
-  const handleMode = (mode, needsColor = false) => {
+  const handleMode = (modeId, needsColor) => {
+    setActiveMode(modeId);
     if (needsColor) {
-      const r = parseInt(colorValue.slice(1, 3), 16);
-      const g = parseInt(colorValue.slice(3, 5), 16);
-      const b = parseInt(colorValue.slice(5, 7), 16);
+      const r = parseInt(activeColor.slice(1, 3), 16);
+      const g = parseInt(activeColor.slice(3, 5), 16);
+      const b = parseInt(activeColor.slice(5, 7), 16);
       setColor(r, g, b);
-      setTimeout(() => setMode(mode), 100);
+      setTimeout(() => setMode(modeId), 50);
     } else {
-      setMode(mode);
+      setMode(modeId);
     }
   };
 
+  // --- ДИЗАЙН (Center + 750px Width) ---
   return (
-    <Card shadow="none" padding="sm" radius="md" withBorder bg="black" style={{ borderColor: '#333', height: '100%', overflow: 'hidden' }}>
-      
-      {/* HEADER: Title & Power */}
-      <Group justify="space-between" mb="xs">
-        <Group gap={8}>
-           <Title order={5} c="white" style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>
-             LED CONTROL
-           </Title>
+    <Container 
+      fluid 
+      h="100vh" 
+      bg="black" 
+      style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        overflow: 'hidden' 
+      }}
+    >
+      <Stack 
+        w="100%" 
+        maw={750} // Settings-пен бірдей өлшем
+        gap="md" 
+        p="md"
+        style={{ maxHeight: '100vh', overflowY: 'auto' }} // Егер экран кіші болса скролл шығады
+      >
+
+        {/* 1. HEADER (Settings стилінде) */}
+        <Group justify="space-between" mb="xs">
+             <Stack gap={4}>
+                <Title 
+                  order={2} 
+                  c="white" 
+                  fw={300} 
+                  style={{ fontSize: '28px', letterSpacing: '8px', textTransform: 'uppercase' }}
+                >
+                  LED CONTROL
+                </Title>
+                <Group gap="xs">
+                  <IconTerminal size={14} color="#666" />
+                  <Text c="dimmed" size="xs" fw={700} style={{ letterSpacing: '3px', fontSize: '10px' }}>
+                    VECTOR LIGHT SYSTEM
+                  </Text>
+                </Group>
+             </Stack>
+
+             <Button 
+                color="gray" 
+                variant="outline" 
+                size="xs"
+                onClick={turnOff} 
+                leftSection={<IconPower size={16} />}
+                styles={{ 
+                    root: { 
+                        borderColor: '#333', 
+                        color: '#666',
+                        '&:hover': { color: 'white', borderColor: 'white', backgroundColor: 'transparent' } 
+                    } 
+                }}
+            >
+                OFF
+            </Button>
         </Group>
-        <ActionIcon 
-            size="lg" color="gray" variant="outline" radius="md"
-            onClick={turnOff} 
-            loading={loading}
-            style={{ borderColor: '#555', color: '#fff' }}
+
+        {/* 2. COLOR PICKER CONTAINER */}
+        <Box 
+            p="lg"
+            style={{ 
+                border: '1px solid #222', 
+                borderRadius: '8px',
+                backgroundColor: '#050505'
+            }}
         >
-            <IconPower size={18} />
-        </ActionIcon>
-      </Group>
+             <Group gap="xs" mb="sm">
+                <IconColorPicker size={18} color="#666"/>
+                <Text size="xs" c="dimmed" fw={700} tt="uppercase" ls={1}>Палитра</Text>
+             </Group>
 
-      {/* TOP SECTION: Color (Left) + Sliders (Right) */}
-      <Grid gutter="xs" mb="xs">
-        
-        {/* Left: Color */}
-        <Grid.Col span={5}>
-          <Card bg="#111" radius="sm" p="xs" withBorder style={{ borderColor: '#222', height: '100%' }}>
-            <Group mb={5} gap={5}>
-               <IconPalette size={14} color="white" />
-               <Text fw={500} size="xs" c="white">COLOR</Text>
-            </Group>
-            <ColorInput
-              value={colorValue}
-              onChange={handleColorChange}
-              format="hex"
-              swatches={['#ffffff', '#ff0000', '#00ff00', '#0000ff', '#00eaff', '#ffae00']}
-              size="xs"
-              styles={{ input: { backgroundColor: '#000', color: '#fff', borderColor: '#333' } }}
+             <ColorPicker
+                format="hex"
+                value={activeColor}
+                onChange={handleColorChange}
+                onChangeEnd={sendColorToServer}
+                swatches={mySwatches}
+                swatchesPerRow={12}
+                size="md"
+                fullWidth
+                styles={{
+                    saturation: { borderRadius: rem(6), marginBottom: rem(15), border: '1px solid #222' },
+                    body: { width: '100%' },
+                    swatch: { width: 24, height: 24, borderRadius: '4px', border: '1px solid #333', cursor: 'pointer' }
+                }}
             />
-          </Card>
-        </Grid.Col>
+        </Box>
 
-        {/* Right: Settings */}
-        <Grid.Col span={7}>
-          <Card bg="#111" radius="sm" p="xs" withBorder style={{ borderColor: '#222', height: '100%' }}>
-            <Stack gap={8}>
-              {/* Brightness */}
-              <Group justify="space-between" gap={0}>
-                 <Group gap={4}>
-                    <IconBrightness size={12} color="gray" />
-                    <Text size="xs" c="dimmed">BRIGHT</Text>
-                 </Group>
-                 <Slider
-                    w={90} min={0} max={255} defaultValue={128}
-                    onChangeEnd={(val) => setBrightness(val)}
-                    color="gray" size="xs" label={null}
-                    styles={{ thumb: { borderColor: '#fff' } }}
-                 />
-              </Group>
-              {/* Speed */}
-              <Group justify="space-between" gap={0}>
-                 <Group gap={4}>
-                    <IconGauge size={12} color="gray" />
-                    <Text size="xs" c="dimmed">SPEED</Text>
-                 </Group>
-                 <Slider
-                    w={90} min={0} max={100} defaultValue={50}
-                    onChangeEnd={(val) => setSpeed(val)}
-                    color="gray" size="xs" label={null}
-                    styles={{ thumb: { borderColor: '#fff' } }}
-                 />
-              </Group>
-            </Stack>
-          </Card>
-        </Grid.Col>
-      </Grid>
-
-      {/* MODES GRID (Compact) */}
-      <Text fw={500} size="xs" c="dimmed" mb={5} tt="uppercase">Select Mode</Text>
+        {/* 3. SLIDERS (2 Columns) */}
+        <SimpleGrid cols={1} spacing="md">
+            {/* Brightness */}
       
-      <SimpleGrid cols={3} spacing="xs" verticalSpacing="xs">
-         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('GEMINI')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
-            GEMINI
-         </Button>
-         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('SCANNER', true)} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
-            SCANNER
-         </Button>
-         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('BREATHING', true)} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
-            BREATH
-         </Button>
-         
-         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('FIRE')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
-            FIRE
-         </Button>
-         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('STARS')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
-            STARS
-         </Button>
-         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('METEOR')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
-            METEOR
-         </Button>
-         
-         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('RAINBOW')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
-            RAINBOW
-         </Button>
-         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('POLICE')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
-            POLICE
-         </Button>
-         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('STROBE')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
-            STROBE
-         </Button>
-      </SimpleGrid>
 
-    </Card>
+            {/* Speed */}
+            <Box p="md" style={{ border: '1px solid #222', borderRadius: '8px', backgroundColor: '#050505' }}>
+                <Group justify="space-between" mb={10}>
+                        <Group gap={6}>
+                        <IconGauge size={18} color="white"/>
+                        <Text size="xs" c="dimmed" fw={700} tt="uppercase">Скорость</Text>
+                    </Group>
+                </Group>
+                <Slider 
+                    min={0} max={100} defaultValue={50} 
+                    onChangeEnd={setSpeed} 
+                    color="gray" 
+                    size="sm"
+                    thumbSize={14}
+                    styles={{ 
+                        thumb: { borderColor: '#fff', backgroundColor: 'black', borderWidth: 2 },
+                        track: { backgroundColor: '#222' },
+                        bar: { backgroundColor: 'white' }
+                    }}
+                />
+            </Box>
+        </SimpleGrid>
+
+        {/* 4. MODES GRID */}
+        <Box 
+            p="md"
+            style={{ 
+                border: '1px solid #222', 
+                borderRadius: '8px',
+                backgroundColor: '#050505'
+            }}
+        >
+            <Group gap={6} mb="sm">
+                <IconLayoutGrid size={16} color="#666"/>
+                <Text size="xs" c="dimmed" tt="uppercase" fw={700} ls={1}>Анимации</Text>
+            </Group>
+            
+            <SimpleGrid cols={{ base: 3, sm: 5 }} spacing="sm">
+                {modes.map((mode) => (
+                    <Button 
+                        key={mode.id}
+                        h={40}
+                        variant={activeMode === mode.id ? "filled" : "outline"}
+                        color="dark"
+                        onClick={() => handleMode(mode.id, mode.needsColor)}
+                        radius="md"
+                        fullWidth
+                        styles={{
+                            root: { 
+                                borderColor: activeMode === mode.id ? 'white' : '#333',
+                                backgroundColor: activeMode === mode.id ? 'white' : 'transparent',
+                                color: activeMode === mode.id ? 'black' : '#666',
+                                transition: 'all 0.2s ease',
+                                '&:hover': {
+                                    borderColor: 'white',
+                                    color: activeMode === mode.id ? 'black' : 'white'
+                                }
+                            },
+                            label: { fontWeight: 700, fontSize: '10px', letterSpacing: '0.5px' }
+                        }}
+                    >
+                        {mode.label}
+                    </Button>
+                ))}
+            </SimpleGrid>
+        </Box>
+
+      </Stack>
+    </Container>
   );
 };
 
