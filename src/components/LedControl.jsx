@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useLed } from '../hooks/useLed';
-import { Card, Text, SimpleGrid, Button, Group, ColorInput, Slider, NumberInput, Stack, Title, ActionIcon } from '@mantine/core';
+import { Card, Text, SimpleGrid, Button, Group, ColorInput, Slider, Stack, Title, ActionIcon, Grid } from '@mantine/core';
+import { IconBrightness, IconGauge, IconPalette, IconPower } from '@tabler/icons-react';
 
 const LedControl = () => {
-  const { setMode, setColor, setBrightness, setSpeed, setLedsCount, turnOff } = useLed();
-  const [ledCount, setLocalLedCount] = useState(300);
-  const [colorValue, setColorValue] = useState('#ffa500'); // Оранжевый дефолт
+  const { setMode, setColor, setBrightness, setSpeed, turnOff, loading } = useLed();
+  const [colorValue, setColorValue] = useState('#ffffff');
 
-  // Обработчик цвета Mantine (возвращает hex)
   const handleColorChange = (hex) => {
     setColorValue(hex);
     const r = parseInt(hex.slice(1, 3), 16);
@@ -16,85 +15,129 @@ const LedControl = () => {
     setColor(r, g, b);
   };
 
+  const handleMode = (mode, needsColor = false) => {
+    if (needsColor) {
+      const r = parseInt(colorValue.slice(1, 3), 16);
+      const g = parseInt(colorValue.slice(3, 5), 16);
+      const b = parseInt(colorValue.slice(5, 7), 16);
+      setColor(r, g, b);
+      setTimeout(() => setMode(mode), 100);
+    } else {
+      setMode(mode);
+    }
+  };
+
   return (
-    <Card shadow="sm" padding="lg" radius="md" withBorder bg="dark.8">
-      <Group justify="space-between" mb="md">
-        <Title order={3} c="white">🎨 Управление светом</Title>
+    <Card shadow="none" padding="sm" radius="md" withBorder bg="black" style={{ borderColor: '#333', height: '100%', overflow: 'hidden' }}>
+      
+      {/* HEADER: Title & Power */}
+      <Group justify="space-between" mb="xs">
+        <Group gap={8}>
+           <Title order={5} c="white" style={{ textTransform: 'uppercase', letterSpacing: '1px' }}>
+             LED CONTROL
+           </Title>
+        </Group>
+        <ActionIcon 
+            size="lg" color="gray" variant="outline" radius="md"
+            onClick={turnOff} 
+            loading={loading}
+            style={{ borderColor: '#555', color: '#fff' }}
+        >
+            <IconPower size={18} />
+        </ActionIcon>
       </Group>
 
-      {/* 1. РЕЖИМЫ */}
-      <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm" mb="xl">
-         <Button variant="gradient" gradient={{ from: 'red', to: 'blue' }} onClick={() => setMode('RAINBOW')}>🌈 Радуга</Button>
-         <Button color="cyan" onClick={() => setMode('METEOR')}>☄️ Метеор</Button>
-         <Button color="orange" onClick={() => setMode('FIRE')}>🔥 Огонь</Button>
-         <Button color="red" onClick={() => setMode('POLICE')}>🚔 Полиция</Button>
-         <Button color="gray" onClick={() => setMode('STATIC')}>💡 Статик</Button>
-         <Button variant="outline" color="red" onClick={turnOff}>❌ ВЫКЛ</Button>
-      </SimpleGrid>
-
-      {/* 2. НАСТРОЙКИ */}
-      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+      {/* TOP SECTION: Color (Left) + Sliders (Right) */}
+      <Grid gutter="xs" mb="xs">
         
-        {/* Цвет */}
-        <Stack gap="xs">
-            <Text c="dimmed" size="sm">Цвет (для Static/Meteor)</Text>
+        {/* Left: Color */}
+        <Grid.Col span={5}>
+          <Card bg="#111" radius="sm" p="xs" withBorder style={{ borderColor: '#222', height: '100%' }}>
+            <Group mb={5} gap={5}>
+               <IconPalette size={14} color="white" />
+               <Text fw={500} size="xs" c="white">COLOR</Text>
+            </Group>
             <ColorInput
               value={colorValue}
               onChange={handleColorChange}
               format="hex"
-              swatches={['#ffa500', '#ff0000', '#00ff00', '#0000ff', '#ffffff', '#ff00ff']}
-              placeholder="Выберите цвет"
+              swatches={['#ffffff', '#ff0000', '#00ff00', '#0000ff', '#00eaff', '#ffae00']}
+              size="xs"
+              styles={{ input: { backgroundColor: '#000', color: '#fff', borderColor: '#333' } }}
             />
-        </Stack>
+          </Card>
+        </Grid.Col>
 
-        {/* Длина ленты */}
-        <Stack gap="xs">
-            <Text c="dimmed" size="sm">Длина ленты (LEDs)</Text>
-            <Group gap={5} wrap="nowrap">
-                <NumberInput
-                    value={ledCount}
-                    onChange={setLocalLedCount}
-                    min={1} max={1000}
-                    style={{ flex: 1 }}
-                />
-                <Button onClick={() => setLedsCount(ledCount)} variant="light" color="gray">
-                    Сохранить
-                </Button>
-            </Group>
-        </Stack>
+        {/* Right: Settings */}
+        <Grid.Col span={7}>
+          <Card bg="#111" radius="sm" p="xs" withBorder style={{ borderColor: '#222', height: '100%' }}>
+            <Stack gap={8}>
+              {/* Brightness */}
+              <Group justify="space-between" gap={0}>
+                 <Group gap={4}>
+                    <IconBrightness size={12} color="gray" />
+                    <Text size="xs" c="dimmed">BRIGHT</Text>
+                 </Group>
+                 <Slider
+                    w={90} min={0} max={255} defaultValue={128}
+                    onChangeEnd={(val) => setBrightness(val)}
+                    color="gray" size="xs" label={null}
+                    styles={{ thumb: { borderColor: '#fff' } }}
+                 />
+              </Group>
+              {/* Speed */}
+              <Group justify="space-between" gap={0}>
+                 <Group gap={4}>
+                    <IconGauge size={12} color="gray" />
+                    <Text size="xs" c="dimmed">SPEED</Text>
+                 </Group>
+                 <Slider
+                    w={90} min={0} max={100} defaultValue={50}
+                    onChangeEnd={(val) => setSpeed(val)}
+                    color="gray" size="xs" label={null}
+                    styles={{ thumb: { borderColor: '#fff' } }}
+                 />
+              </Group>
+            </Stack>
+          </Card>
+        </Grid.Col>
+      </Grid>
+
+      {/* MODES GRID (Compact) */}
+      <Text fw={500} size="xs" c="dimmed" mb={5} tt="uppercase">Select Mode</Text>
+      
+      <SimpleGrid cols={3} spacing="xs" verticalSpacing="xs">
+         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('GEMINI')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
+            GEMINI
+         </Button>
+         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('SCANNER', true)} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
+            SCANNER
+         </Button>
+         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('BREATHING', true)} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
+            BREATH
+         </Button>
+         
+         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('FIRE')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
+            FIRE
+         </Button>
+         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('STARS')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
+            STARS
+         </Button>
+         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('METEOR')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
+            METEOR
+         </Button>
+         
+         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('RAINBOW')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
+            RAINBOW
+         </Button>
+         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('POLICE')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
+            POLICE
+         </Button>
+         <Button size="xs" color="gray" variant="outline" onClick={() => handleMode('STROBE')} styles={{ root: { borderColor: '#444', color: '#fff' } }}>
+            STROBE
+         </Button>
       </SimpleGrid>
 
-      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg" mt="lg">
-         {/* Яркость */}
-         <Stack gap="xs">
-            <Text c="dimmed" size="sm">Яркость</Text>
-            <Slider
-                min={0.1} max={1.0} step={0.1} defaultValue={0.8}
-                onChangeEnd={setBrightness}
-                color="orange"
-                marks={[
-                    { value: 0.2, label: '20%' },
-                    { value: 0.5, label: '50%' },
-                    { value: 0.8, label: '80%' },
-                ]}
-            />
-         </Stack>
-
-         {/* Скорость */}
-         <Stack gap="xs">
-            <Text c="dimmed" size="sm">Скорость эффектов</Text>
-             <Slider
-                min={10} max={100} step={10} defaultValue={50}
-                onChangeEnd={setSpeed}
-                color="blue"
-                 marks={[
-                    { value: 20, label: 'Slow' },
-                    { value: 50, label: 'Norm' },
-                    { value: 90, label: 'Fast' },
-                ]}
-            />
-         </Stack>
-      </SimpleGrid>
     </Card>
   );
 };

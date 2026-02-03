@@ -1,42 +1,42 @@
 import { useState } from 'react';
 
-const API_URL = "http://localhost:5005/api/led";
+// Python Bridge адресі
+const API_BASE = "http://localhost:5005";
 
 export function useLed() {
   const [loading, setLoading] = useState(false);
 
-  // Универсальная функция отправки
-  const sendCmd = async (payload) => {
+  // Универсалды сұрау жіберуші функция
+  const sendRequest = async (endpoint, body) => {
     setLoading(true);
     try {
-      await fetch(API_URL, {
+      await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
     } catch (e) {
-      console.error("LED Error:", e);
+      console.error("LED Control Error:", e);
     }
     setLoading(false);
   };
 
-  // Готовые методы для кнопок
-  const setMode = (mode) => sendCmd({ mode });
-  const setColor = (r, g, b) => sendCmd({ mode: "STATIC", color: [r, g, b] });
-  const setBrightness = (val) => sendCmd({ bright: parseFloat(val) });
-  const setSpeed = (val) => sendCmd({ speed: parseInt(val) });
-  const setLedsCount = (num) => sendCmd({ config: { num: parseInt(num) } });
-  
-  // Выключение
-  const turnOff = () => sendCmd({ mode: "OFF" });
+  return {
+    loading,
 
-  return { 
-    loading, 
-    setMode, 
-    setColor, 
-    setBrightness, 
-    setSpeed, 
-    setLedsCount,
-    turnOff 
+    // 1. Түсті өзгерту (RGB)
+    setColor: (r, g, b) => sendRequest('/led/color', { color: [r, g, b] }),
+
+    // 2. Режимді ауыстыру (RAINBOW, FIRE, GEMINI...)
+    setMode: (mode) => sendRequest('/led/mode', { mode }),
+
+    // 3. Жарықтық (0-255)
+    setBrightness: (val) => sendRequest('/led/brightness', { value: parseInt(val) }),
+
+    // 4. Жылдамдық (0-100)
+    setSpeed: (val) => sendRequest('/led/speed', { value: parseInt(val) }),
+
+    // 5. Өшіру
+    turnOff: () => sendRequest('/led/off', {}),
   };
 }
