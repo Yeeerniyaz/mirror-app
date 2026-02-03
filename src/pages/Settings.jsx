@@ -3,6 +3,9 @@ import { Container, Stack, Title, Text, Group, Box, UnstyledButton } from "@mant
 import { Wifi, RefreshCw, Power, ChevronRight, Terminal } from "lucide-react";
 import YandexAuth from '../components/YandexAuth';
 
+// Біз жасаған сөздік
+import { translations } from "../utils/translations";
+
 // БАТЫРМА КОМПОНЕНТІ (Өзгеріссіз)
 const SettingItem = ({ icon: Icon, title, desc, onClick, danger = false }) => {
   return (
@@ -16,9 +19,9 @@ const SettingItem = ({ icon: Icon, title, desc, onClick, danger = false }) => {
         borderRadius: '8px',
         transition: 'all 0.2s ease',
       }}
-      // Hover
+      // Hover эффектілері
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = danger ? 'white' : 'white';
+        e.currentTarget.style.borderColor = 'white';
         e.currentTarget.style.backgroundColor = danger ? '#300' : '#111';
       }}
       onMouseLeave={(e) => {
@@ -50,8 +53,14 @@ export const Settings = ({
   sendCmd, 
   updateMirror, 
   appVersion, 
-  openWifiSettings 
+  openWifiSettings,
+  config // <--- ЖАҢА: Config-ті қабылдаймыз
 }) => {
+
+  // 1. Тілді анықтау
+  const lang = config?.language || "ru";
+  // 2. Сөздікті таңдау
+  const T = translations[lang] || translations.ru;
 
   return (
     <Container 
@@ -60,13 +69,9 @@ export const Settings = ({
       bg="black" 
       style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
     >
-      {/* maw={750} - Ені 750px.
-         Блок экран ортасында, бірақ ішіндегі мәтін СОЛ ЖАҚТА.
-      */}
       <Stack w="100%" maw={750} gap="xl" p="md">
 
-        {/* 1. HEADER (LEFT ALIGNED) */}
-        {/* align="center" дегенді алып тастадым */}
+        {/* 1. HEADER */}
         <Stack gap={4} mb="md">
             <Title 
               order={2} 
@@ -74,7 +79,7 @@ export const Settings = ({
               fw={300} 
               style={{ fontSize: '28px', letterSpacing: '10px', textTransform: 'uppercase' }}
             >
-              КОНФИГУРАЦИЯ
+              {T.config_title} {/* АУДАРЫЛДЫ */}
             </Title>
             <Group gap="xs">
               <Terminal size={14} color="#444" />
@@ -86,41 +91,43 @@ export const Settings = ({
 
         {/* 2. YANDEX БЛОГЫ */}
         <Box>
-            {/* ta="center" дегенді алып тастадым (default: left) */}
             <Text c="dimmed" size="xs" tt="uppercase" fw={700} ls={2} mb="xs">
-                Голосовой Ассистент
+                {T.voice_assistant} {/* АУДАРЫЛДЫ */}
             </Text>
-            <YandexAuth />
+            {/* Тілді YandexAuth-қа жібереміз */}
+            <YandexAuth lang={lang} T={T} />
         </Box>
 
         {/* 3. СИСТЕМНЫЕ НАСТРОЙКИ */}
         <Box>
-            {/* Мәтін сол жақта */}
             <Text c="dimmed" size="xs" tt="uppercase" fw={700} ls={2} mb="xs">
-                Система
+                {T.system_settings} {/* АУДАРЫЛДЫ */}
             </Text>
             <Stack gap="sm">
                 
                 <SettingItem 
                     icon={Wifi}
-                    title="WI-FI Подключение"
-                    desc="Управление беспроводной сетью"
+                    title={T.wifi} // АУДАРЫЛДЫ
+                    desc={T.wifi_desc} 
                     onClick={openWifiSettings}
                 />
 
                 <SettingItem 
                     icon={RefreshCw}
-                    title="Обновить Интерфейс"
-                    desc="Загрузка последней версии (Git Pull)"
+                    title={T.update} // АУДАРЫЛДЫ
+                    desc={T.update_desc}
                     onClick={updateMirror}
                 />
 
                 <SettingItem 
                     icon={Power}
-                    title="Перезагрузка"
-                    desc="Полный рестарт системы"
+                    title={T.reboot} // АУДАРЫЛДЫ
+                    desc={T.reboot_desc}
                     danger={true}
-                    onClick={() => window.confirm("Перезагрузить систему?") && sendCmd("reboot")}
+                    onClick={() => {
+                        // Растау сұрағы
+                        if(window.confirm(`${T.reboot}?`)) sendCmd("reboot");
+                    }}
                 />
 
             </Stack>

@@ -4,17 +4,33 @@ import { Sun, Wind, Leaf, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import "dayjs/locale/ru"; // 👇 РУССКИЙ ЯЗЫК
 
-// Подключаем русский
+// Тілдерді қосамыз (DayJS үшін)
+import "dayjs/locale/ru";
+import "dayjs/locale/kk";
+import "dayjs/locale/en";
+
+// Біз жасаған сөздік
+import { translations } from "../utils/translations";
+
 dayjs.extend(relativeTime);
-dayjs.locale("ru");
 
-export const Dashboard = ({ time, weather, news }) => {
+export const Dashboard = ({ time, weather, news, config }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visible, setVisible] = useState(true);
 
-  // Текст AQI (Русский)
+  // 1. Тілді анықтау (Config-тан немесе default 'ru')
+  const lang = config?.language || "ru";
+  
+  // 2. Сөздікті таңдау
+  const T = translations[lang] || translations.ru;
+
+  // 3. DayJS тілін орнату (Сағат пен күн үшін)
+  useEffect(() => {
+    dayjs.locale(lang);
+  }, [lang]);
+
+  // Экология түстері (AQI)
   const getAqiColor = (aqi) => {
     if (aqi <= 20) return "teal";
     if (aqi <= 40) return "yellow";
@@ -22,11 +38,12 @@ export const Dashboard = ({ time, weather, news }) => {
   };
 
   const getAqiText = (aqi) => {
-    if (aqi <= 20) return "Чистый";
-    if (aqi <= 40) return "Средний";
-    return "Грязный";
+    if (aqi <= 20) return T.clean;
+    if (aqi <= 40) return T.moderate;
+    return T.polluted;
   };
 
+  // Жаңалықтар лентасын айналдыру (Ticker)
   useEffect(() => {
     if (!news || news.length === 0) return;
     const interval = setInterval(() => {
@@ -35,45 +52,48 @@ export const Dashboard = ({ time, weather, news }) => {
         setCurrentIndex((prev) => (prev + 1) % news.length);
         setVisible(true);
       }, 600);
-    }, 10000);
+    }, 10000); // Әр 10 секунд сайын ауысады
     return () => clearInterval(interval);
   }, [news]);
 
   const hasNews = news && news.length > 0;
+  
+  // Егер жаңалық жоқ болса, жүйелік хабарлама көрсетеміз
   const currentItem = hasNews 
     ? news[currentIndex] 
-    : { title: "Загрузка VECTOR OS...", date: new Date(), source: "СИСТЕМА" };
+    : { title: T.news_search, date: new Date(), source: T.system };
 
   return (
     <Container fluid p="70px" style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
       
-      {/* ВЕРХНЯЯ ПАНЕЛЬ */}
+      {/* ЖОҒАРҒЫ БӨЛІК: САҒАТ ЖӘНЕ АУА РАЙЫ */}
       <Group align="flex-start" justify="space-between" wrap="nowrap">
         
-        {/* ЛЕВАЯ ЧАСТЬ: Часы и Календарь */}
+        {/* СОЛ ЖАҚ: САҒАТ & КҮНТІЗБЕ */}
         <Stack gap="xl">
           <Stack gap={0}>
-            <Title order={1} style={{ fontSize: "150px", fontWeight: 100, letterSpacing: "-8px", lineHeight: 0.8 }}>
+            <Title order={1} style={{ fontSize: "150px", fontWeight: 100, letterSpacing: "-8px", lineHeight: 0.8, color: "white" }}>
               {dayjs(time).format("HH:mm")}
             </Title>
             <Text size="35px" fw={200} c="dimmed" mt="md" style={{ letterSpacing: "5px", textTransform: "capitalize" }}>
-              {dayjs(time).locale("ru").format("dddd, D MMMM")}
+              {dayjs(time).format("dddd, D MMMM")}
             </Text>
           </Stack>
           
+          {/* Кіші күнтізбе */}
           <Box mt="xl" style={{ opacity: 0.8, marginLeft: "-15px", width: "280px" }}>
             <Calendar
-              locale="ru"
+              locale={lang} // Mantine Calendar тілі
               size="sm"
               withControls={false}
               styles={{
                 calendar: { backgroundColor: "transparent", border: "none" },
                 day: { 
-                  color: "#fff", 
-                  fontSize: "14px", 
-                  width: "35px", 
-                  height: "35px", 
-                  "&[data-today]": { color: "#000", backgroundColor: "#fff", borderRadius: "50%" } 
+                    color: "#fff", 
+                    fontSize: "14px", 
+                    width: "35px", 
+                    height: "35px", 
+                    "&[data-today]": { color: "#000", backgroundColor: "#fff", borderRadius: "50%" } 
                 },
                 calendarHeader: { display: 'none' }, 
               }}
@@ -81,26 +101,27 @@ export const Dashboard = ({ time, weather, news }) => {
           </Box>
         </Stack>
 
-        {/* ПРАВАЯ ЧАСТЬ: Данные (Погода + AQI) */}
+        {/* ОҢ ЖАҚ: АУА РАЙЫ */}
         <Stack align="flex-end" gap="60px">
           <Group gap="xl" align="center">
-            <Text style={{ fontSize: "100px", fontWeight: 100 }}>
+            <Text style={{ fontSize: "100px", fontWeight: 100, color: "white" }}>
               {weather?.temp !== undefined ? `${weather.temp}°` : "--°"}
             </Text>
-            <Sun size={60} strokeWidth={1} />
+            <Sun size={60} strokeWidth={1} color="white" />
           </Group>
           
           <Stack align="flex-end" gap="20px" style={{ borderRight: "1px solid #333", paddingRight: "30px" }}>
             
-            {/* 1. Город */}
+            {/* Қала */}
             <Group gap="sm">
-               <Text size="32px" fw={100} style={{ letterSpacing: "1px" }}>
-                 {weather?.city || "Алматы"}
+               <Text size="32px" fw={100} style={{ letterSpacing: "1px", color: "white" }}>
+                 {/* Қала аты Config-тан келеді, болмаса GPS */}
+                 {config?.city || weather?.city}
                </Text>
-               <MapPin size={28} strokeWidth={1.5} />
+               <MapPin size={28} strokeWidth={1.5} color="white" />
             </Group>
 
-            {/* 2. Качество воздуха (AQI) */}
+            {/* Экология (AQI) */}
             <Group gap="sm">
                <Stack gap={0} align="flex-end">
                  <Text size="32px" fw={100} c={getAqiColor(weather?.aqi)}>
@@ -111,37 +132,31 @@ export const Dashboard = ({ time, weather, news }) => {
                <Leaf size={28} color={getAqiColor(weather?.aqi)} strokeWidth={1.5} />
             </Group>
 
-            {/* 3. Ветер */}
+            {/* Жел жылдамдығы */}
             <Group gap="sm">
-               <Text size="32px" fw={100}>
-                 {weather?.wind || "--"} м/с
+               <Text size="32px" fw={100} color="white">
+                 {weather?.wind || "--"} {T.wind_speed}
                </Text>
-               <Wind size={28} strokeWidth={1.5} />
+               <Wind size={28} strokeWidth={1.5} color="white" />
             </Group>
-
           </Stack>
         </Stack>
       </Group>
 
-      {/* НИЖНЯЯ ПАНЕЛЬ НОВОСТЕЙ */}
+      {/* TӨМЕНГІ БӨЛІК: ЖАҢАЛЫҚТАР */}
       <Box mt="xl" pt="xl" style={{ borderTop: "1px solid #222", textAlign: "center", minHeight: "160px" }}>
         <Transition mounted={visible} transition="fade" duration={600} timingFunction="ease">
           {(styles) => (
             <div style={styles}>
-              <Text 
-                size="36px" 
-                fw={200} 
-                style={{ lineHeight: 1.3, maxWidth: "85%", margin: "0 auto", letterSpacing: "0.5px" }}
-              >
-                {currentItem?.title || "Поиск актуальных новостей..."}
+              <Text size="36px" fw={200} c="white" style={{ lineHeight: 1.3, maxWidth: "85%", margin: "0 auto", letterSpacing: "0.5px" }}>
+                {currentItem?.title}
               </Text>
-              
               <Group justify="center" gap="xl" mt="md">
                 <Text fw={900} size="xs" c="white" style={{ letterSpacing: "3px" }}>
-                  {currentItem?.source || "VECTOR"}
+                  {currentItem?.source}
                 </Text>
                 <Text size="xs" c="dimmed" style={{ letterSpacing: "1px" }}>
-                  {hasNews ? dayjs(currentItem.date).fromNow() : "СЕЙЧАС"}
+                  {hasNews ? dayjs(currentItem.date).fromNow() : T.now}
                 </Text>
               </Group>
             </div>

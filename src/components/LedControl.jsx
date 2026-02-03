@@ -23,7 +23,7 @@ const LedControl = () => {
   ];
 
   const modes = [
-    { id: 'GEMINI', label: 'GEMINI AI', type: 'pro' },
+    { id: 'GEMINI', label: 'GEMINI', type: 'pro' },
     { id: 'SCANNER', label: 'СКАНЕР', type: 'pro', needsColor: true },
     { id: 'BREATHING', label: 'ДЫХАНИЕ', type: 'pro', needsColor: true },
     { id: 'STROBE', label: 'СТРОБО', type: 'pro' },
