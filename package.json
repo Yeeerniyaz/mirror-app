@@ -1,6 +1,6 @@
 {
   "name": "vector-standalone",
-  "version": "2.0.109",
+  "version": "2.0.110",
   "description": "Smart Mirror VECTOR Offline Standalone App",
   "author": "Yerniyaz",
   "main": "main.js",
@@ -14,7 +14,6 @@
     "deploy:pi": "node deploy-local.cjs"
   },
   "dependencies": {
-    "@abandonware/noble": "^1.9.2-26",
     "@mantine/core": "^7.0.0",
     "@mantine/dates": "^7.17.8",
     "@mantine/hooks": "^7.0.0",
