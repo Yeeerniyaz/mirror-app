@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAlice } from '../hooks/useAlice';
-import { Card, Group, Title, Badge, Text, Button, Stack, Loader, Center, Paper, rem } from '@mantine/core';
+import { Card, Group, Title, Badge, Text, Button, Stack, Loader, Paper, rem } from '@mantine/core';
 import { IconBrandYandex, IconUnlink, IconLink, IconDeviceMobile } from '@tabler/icons-react';
 
-const YandexAuth = () => {
+// Props: lang, T (Translations) қабылдаймыз
+const YandexAuth = ({ lang, T }) => {
   const { status, connectAlice, disconnectAlice, loading } = useAlice();
   const [code, setCode] = useState(null); 
   const isOnline = status === 'online';
 
-  // Егер статус "online" болып өзгерсе, кодты алып тастаймыз
   useEffect(() => {
     if (isOnline) setCode(null);
   }, [isOnline]);
@@ -20,10 +20,12 @@ const YandexAuth = () => {
     }
   };
 
-  // Кодты әдемілеу (Мысалы: 123 456)
   const formatCode = (c) => {
     return c ? c.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") : "";
   };
+
+  // Егер T әлі жүктелмесе (null болса), бос қайтарамыз
+  if (!T) return null;
 
   return (
     <Card 
@@ -48,11 +50,11 @@ const YandexAuth = () => {
                 {/* Ақ түсті Яндекс логотипі */}
                 <IconBrandYandex size={24} color="white" />
                 <Title order={4} c="white" tt="uppercase" ls={1} fw={800}>
-                    YANDEX
+                    {T.yandex_title} {/* АУДАРЫЛДЫ */}
                 </Title>
             </Group>
             
-            {/* Статус индикаторы (Ақ/Сұр) */}
+            {/* Статус индикаторы */}
             <Badge 
                 color={isOnline ? "white" : "dark"} 
                 variant={isOnline ? "white" : "outline"} 
@@ -60,7 +62,7 @@ const YandexAuth = () => {
                 radius="sm"
                 styles={{ root: { color: isOnline ? 'black' : '#666', borderColor: '#333' } }}
             >
-                {isOnline ? 'ПОДКЛЮЧЕНО' : 'НЕ В СЕТИ'}
+                {isOnline ? T.connected : T.offline} {/* АУДАРЫЛДЫ */}
             </Badge>
         </Group>
         
@@ -76,7 +78,7 @@ const YandexAuth = () => {
            <>
              <IconDeviceMobile size={48} color="#333" stroke={1.5} />
              <Text c="dimmed" size="sm" ta="center" px="md">
-               Для голосового управления<br/>требуется привязка аккаунта
+               {T.connect_hint} {/* АУДАРЫЛДЫ */}
              </Text>
            </>
         )}
@@ -85,7 +87,7 @@ const YandexAuth = () => {
         {!isOnline && code && (
             <Stack gap="xs" align="center" w="100%">
                 <Text c="dimmed" size="xs" tt="uppercase" fw={700} ls={1}>
-                    КОД ПОДКЛЮЧЕНИЯ
+                    {T.connect_code} {/* АУДАРЫЛДЫ */}
                 </Text>
                 
                 {/* Кодты үлкен, контрасты қылып көрсету */}
@@ -112,7 +114,7 @@ const YandexAuth = () => {
                 
                 <Group gap={5} mt={5}>
                     <Loader color="gray" type="dots" size="xs" />
-                    <Text c="dimmed" size="xs">Ожидание подтверждения...</Text>
+                    <Text c="dimmed" size="xs">{T.waiting}</Text> {/* АУДАРЫЛДЫ */}
                 </Group>
             </Stack>
         )}
@@ -122,9 +124,9 @@ const YandexAuth = () => {
             <Stack gap="sm" align="center">
                 <IconLink size={48} color="white" stroke={1} />
                 <Stack gap={0} align="center">
-                    <Text c="white" size="lg" fw={700}>СВЯЗЬ УСТАНОВЛЕНА</Text>
+                    <Text c="white" size="lg" fw={700}>{T.success_title}</Text> {/* АУДАРЫЛДЫ */}
                     <Text c="dimmed" size="sm" ta="center">
-                        Теперь вы можете управлять<br/>зеркалом через Алису
+                        {T.success_desc} {/* АУДАРЫЛДЫ */}
                     </Text>
                 </Stack>
             </Stack>
@@ -141,14 +143,14 @@ const YandexAuth = () => {
             fullWidth
             onClick={handleGetCode}
             loading={loading}
-            variant="white" // Ақ түйме - назар аудару үшін
+            variant="white" // Ақ түйме
             c="black"
             h={45}
             radius="md"
             styles={{ root: { fontWeight: 700 } }}
             leftSection={<IconLink size={18} />}
           >
-            СВЯЗАТЬ УСТРОЙСТВО
+            {T.btn_connect} {/* АУДАРЫЛДЫ */}
           </Button>
         )}
 
@@ -163,7 +165,7 @@ const YandexAuth = () => {
               h={40}
               styles={{ root: { borderColor: '#333', color: '#888', '&:hover': { color: 'white', borderColor: 'white' } } }}
             >
-              ОТМЕНА
+              {T.btn_cancel} {/* АУДАРЫЛДЫ */}
             </Button>
         )}
 
@@ -174,7 +176,7 @@ const YandexAuth = () => {
               onClick={disconnectAlice}
               loading={loading}
               variant="outline"
-              color="gray" // Сұр, көзге қатты ұрмайды
+              color="gray"
               h={40}
               radius="md"
               styles={{ 
@@ -187,7 +189,7 @@ const YandexAuth = () => {
               }}
               leftSection={<IconUnlink size={16} />}
             >
-              ОТКЛЮЧИТЬ
+              {T.btn_disconnect} {/* АУДАРЫЛДЫ */}
             </Button>
         )}
       </Stack>

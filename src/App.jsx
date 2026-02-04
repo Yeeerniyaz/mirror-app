@@ -21,11 +21,13 @@ export default function App() {
     updProgress,
     appVersion,
     setUpdStatus,
+    config // <--- ЖАҢА: Серверден келген баптаулар (Тіл, Қала)
   } = useMirrorData();
 
   // --- СИСТЕМНЫЕ КОМАНДЫ ---
   const openWifiSettings = () => ipc?.send("open-wifi-settings");
   const updateMirror = () => ipc?.send("check-for-updates");
+  
   const sendCmd = (cmd) => {
     setUpdStatus(`ВЫПОЛНЕНИЕ: ${cmd.toUpperCase()}...`);
     ipc?.send("system-cmd", cmd);
@@ -33,8 +35,8 @@ export default function App() {
   };
 
   // --- LOOP (БЕСКОНЕЧНЫЙ) НАВИГАЦИЯ ЛОГИКАСЫ ---
-  const nextPage = () => setPage((p) => (p === 3 ? 0 : p + 1)); // 3-тен кейін 0-ге
-  const prevPage = () => setPage((p) => (p === 0 ? 3 : p - 1)); // 0-ден кейін 3-ке
+  const nextPage = () => setPage((p) => (p === 3 ? 0 : p + 1));
+  const prevPage = () => setPage((p) => (p === 0 ? 3 : p - 1));
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -58,7 +60,7 @@ export default function App() {
           cursor: page === 0 ? "none" : "default",
         }}
       >
-        {/* UPDATES BAR (Бұрынғыдай) */}
+        {/* UPDATES BAR */}
         {updStatus && (
           <Box style={{ position: "fixed", top: 40, left: "50%", transform: "translateX(-50%)", zIndex: 10000, width: 320, background: "rgba(5,5,5,0.95)", padding: "20px", border: "1px solid #111", borderRadius: "4px" }}>
             <Text size="xs" fw={900} mb={updProgress > 0 ? 10 : 0} ta="center" style={{ letterSpacing: "3px" }}>{updStatus.toUpperCase()}</Text>
@@ -76,23 +78,34 @@ export default function App() {
             transform: `translateX(-${page * 100}vw)`,
           }}
         >
+          {/* 1. DASHBOARD */}
           <Box style={{ width: "100vw", height: "100vh" }}>
-            <Dashboard time={time} weather={weather} sensors={sensors} news={news} />
+            <Dashboard 
+                time={time} 
+                weather={weather} 
+                sensors={sensors} 
+                news={news} 
+                config={config} // <--- Config жібердік (Тіл ауысу үшін)
+            />
           </Box>
           
+          {/* 2. HUB */}
           <Box style={{ width: "100vw", height: "100vh" }}>
             <Hub setPage={setPage} />
           </Box>
           
+          {/* 3. SETTINGS */}
           <Box style={{ width: "100vw", height: "100vh" }}>
             <Settings
               sendCmd={sendCmd}
               updateMirror={updateMirror}
               appVersion={appVersion}
               openWifiSettings={openWifiSettings}
+              config={config} // <--- Config жібердік (Тіл ауысу үшін)
             />
           </Box>
 
+          {/* 4. LED CONTROL */}
           <Box style={{ width: "100vw", height: "100vh" }}>
             <LedControl />
           </Box>
