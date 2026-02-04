@@ -4,7 +4,7 @@ const path = require("path");
 
 // --- НАСТРОЙКИ RASPBERRY PI ---
 const CONFIG = {
-  ip: "192.168.8.39",          // ⚠️ ВПИШИ СЮДА РЕАЛЬНЫЙ IP МАЛИНКИ
+  ip: "192.168.8.43",          // ⚠️ ВПИШИ СЮДА РЕАЛЬНЫЙ IP МАЛИНКИ
   user: "yerniyaz",            // Твой юзер на малинке
   targetDir: "/home/yerniyaz/Desktop/vector/", // Куда кидать файлы
   distDir: "./dist-electron",

@@ -2,8 +2,8 @@ import { ipcMain, BrowserWindow, app } from "electron";
 import { exec } from "child_process";
 import { requestPairingCode, getAliceStatus, logoutAlice } from "./alice.js";
 import { socket } from "./socket.js"; 
-import updater from "./updater.js";
-import { saveUserToken } from "./identity.js"; // <--- МАҢЫЗДЫ: Токен сақтау үшін импорттадық
+// ❌ UPDATER ИМПОРТЫ АЛЫП ТАСТАЛДЫ (main.js өзі қосады)
+import { saveUserToken } from "./identity.js"; 
 
 export const setupIpc = (deviceId) => {
   
@@ -12,7 +12,10 @@ export const setupIpc = (deviceId) => {
 
   // 2. Курсор (мыши)
   ipcMain.on("set-cursor", (event, type) => {
-    event.sender.send("cursor-changed", type);
+    // Қате шықпас үшін тексеріс қостым
+    if (event.sender && !event.sender.isDestroyed()) {
+        event.sender.send("cursor-changed", type);
+    }
   });
 
   // 3. Питание (Reboot/Shutdown)
@@ -64,10 +67,7 @@ export const setupIpc = (deviceId) => {
   });
 
   // --- 7. UPDATER ---
-  ipcMain.on('check-for-updates', (event) => {
-      const win = BrowserWindow.fromWebContents(event.sender);
-      updater.checkForUpdates(win);
-  });
+  // ❌ 'check-for-updates' тыңдаушысы АЛЫП ТАСТАЛДЫ (updater.js өзі жасайды)
 
   ipcMain.on('get-app-version', (event) => {
       event.reply('app-version', app.getVersion());
@@ -85,22 +85,22 @@ export const setupIpc = (deviceId) => {
   socket.on('config_updated', (newConfig) => {
       console.log("ipc: 🔥 config received from server", newConfig);
       BrowserWindow.getAllWindows().forEach(win => {
-          win.webContents.send('config-updated', newConfig);
+          if (!win.isDestroyed()) win.webContents.send('config-updated', newConfig);
       });
   });
 
-  // C. СӘТТІ ЖҰПТАУ (Server -> Electron -> React) <--- ЖАҢА ҚОСЫЛҒАН БӨЛІК
+  // C. СӘТТІ ЖҰПТАУ (Server -> Electron -> React)
   socket.on('pairing_success', (data) => {
       console.log("ipc: 🔗 Pairing Success!", data);
       
-      // 1. Токенді файлға сақтаймыз (келесі жолы авто-кіру үшін)
+      // 1. Токенді файлға сақтаймыз
       if (data.userId) {
           saveUserToken(data.userId);
       }
 
-      // 2. React-қа хабарлаймыз: "Экранды жаңарт, біз кірдік!"
+      // 2. React-қа хабарлаймыз
       BrowserWindow.getAllWindows().forEach(win => {
-          win.webContents.send('alice-status-changed', 'online');
+          if (!win.isDestroyed()) win.webContents.send('alice-status-changed', 'online');
       });
   });
 
@@ -110,7 +110,7 @@ export const setupIpc = (deviceId) => {
       if (cmd.type === 'reboot') exec("sudo reboot");
       
       BrowserWindow.getAllWindows().forEach(win => {
-          win.webContents.send('command', cmd);
+          if (!win.isDestroyed()) win.webContents.send('command', cmd);
       });
   });
 };

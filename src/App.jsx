@@ -7,6 +7,8 @@ import { Hub } from "./pages/Hub";
 import { Settings } from "./pages/Settings";
 import LedControl from "./components/LedControl";
 
+import { useHardwareBridge } from "./hooks/useHardwareBridge";
+
 const ipc = window.require ? window.require("electron").ipcRenderer : null;
 
 export default function App() {
@@ -33,6 +35,8 @@ export default function App() {
     ipc?.send("system-cmd", cmd);
     setTimeout(() => setUpdStatus(""), 2000);
   };
+
+  useHardwareBridge();
 
   // --- LOOP (БЕСКОНЕЧНЫЙ) НАВИГАЦИЯ ЛОГИКАСЫ ---
   const nextPage = () => setPage((p) => (p === 3 ? 0 : p + 1));
