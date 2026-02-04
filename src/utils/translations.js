@@ -16,7 +16,7 @@ export const translations = {
     wifi: "WI-FI Подключение",
     wifi_desc: "Управление беспроводной сетью",
     update: "Обновить Интерфейс",
-    update_desc: "Загрузка последней версии (Git Pull)",
+    update_desc: "Загрузка последней версии ",
     reboot: "Перезагрузка",
     reboot_desc: "Полный рестарт системы",
     
@@ -48,7 +48,7 @@ export const translations = {
     wifi: "WI-FI Қосылу",
     wifi_desc: "Желіні басқару",
     update: "Жаңарту",
-    update_desc: "Соңғы нұсқаны жүктеу (Git Pull)",
+    update_desc: "Соңғы нұсқаны жүктеу ",
     reboot: "Қайта қосу",
     reboot_desc: "Жүйені толық қайта іске қосу",
 
@@ -80,7 +80,7 @@ export const translations = {
     wifi: "WI-FI Connection",
     wifi_desc: "Manage wireless network",
     update: "Update Interface",
-    update_desc: "Download latest version (Git Pull)",
+    update_desc: "Download latest version ",
     reboot: "Reboot",
     reboot_desc: "Full system restart",
 

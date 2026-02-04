@@ -5,7 +5,6 @@ import { useMirrorData } from "./hooks/useMirrorData";
 import { Dashboard } from "./pages/Dashboard";
 import { Hub } from "./pages/Hub";
 import { Settings } from "./pages/Settings";
-import LedControl from "./components/LedControl";
 
 import { useHardwareBridge } from "./hooks/useHardwareBridge";
 
@@ -14,6 +13,7 @@ const ipc = window.require ? window.require("electron").ipcRenderer : null;
 export default function App() {
   useHardwareBridge();
   const [page, setPage] = useState(0);
+  const TOTAL_PAGES = 3; // Енді тек 3 бет
 
   const {
     time,
@@ -24,7 +24,7 @@ export default function App() {
     updProgress,
     appVersion,
     setUpdStatus,
-    config, // <--- ЖАҢА: Серверден келген баптаулар (Тіл, Қала)
+    config,
   } = useMirrorData();
 
   // --- СИСТЕМНЫЕ КОМАНДЫ ---
@@ -38,8 +38,8 @@ export default function App() {
   };
 
   // --- LOOP (БЕСКОНЕЧНЫЙ) НАВИГАЦИЯ ЛОГИКАСЫ ---
-  const nextPage = () => setPage((p) => (p === 3 ? 0 : p + 1));
-  const prevPage = () => setPage((p) => (p === 0 ? 3 : p - 1));
+  const nextPage = () => setPage((p) => (p === TOTAL_PAGES - 1 ? 0 : p + 1));
+  const prevPage = () => setPage((p) => (p === 0 ? TOTAL_PAGES - 1 : p - 1));
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -94,11 +94,11 @@ export default function App() {
           </Box>
         )}
 
-        {/* СЛАЙДЕР (4 BET) */}
+        {/* СЛАЙДЕР (3 BET) */}
         <Box
           style={{
             display: "flex",
-            width: "400vw",
+            width: "300vw", // 400vw-дан 300vw-ға өзгертілді
             height: "100vh",
             transition: "transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
             transform: `translateX(-${page * 100}vw)`,
@@ -111,7 +111,7 @@ export default function App() {
               weather={weather}
               sensors={sensors}
               news={news}
-              config={config} // <--- Config жібердік (Тіл ауысу үшін)
+              config={config}
             />
           </Box>
 
@@ -120,20 +120,15 @@ export default function App() {
             <Hub setPage={setPage} />
           </Box>
 
-          {/* 3. SETTINGS */}
+          {/* 3. SETTINGS (LedControl осы беттің ішінде) */}
           <Box style={{ width: "100vw", height: "100vh" }}>
             <Settings
               sendCmd={sendCmd}
               updateMirror={updateMirror}
               appVersion={appVersion}
               openWifiSettings={openWifiSettings}
-              config={config} // <--- Config жібердік (Тіл ауысу үшін)
+              config={config}
             />
-          </Box>
-
-          {/* 4. LED CONTROL */}
-          <Box style={{ width: "100vw", height: "100vh" }}>
-            <LedControl />
           </Box>
         </Box>
 
@@ -148,7 +143,7 @@ export default function App() {
           }}
         >
           <div style={{ display: "flex", gap: "15px" }}>
-            {[0, 1, 2, 3].map((i) => (
+            {[0, 1, 2].map((i) => ( // Массив 0, 1, 2 болып қысқартылды
               <Box
                 key={i}
                 onClick={() => setPage(i)}

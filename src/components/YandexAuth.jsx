@@ -46,20 +46,13 @@ const YandexAuth = ({ lang, T }) => {
       <Stack gap="xs">
         <Group justify="space-between">
             <Group gap="xs">
-                <IconAccessPoint size={24} color="#ff9900" /> {/* Оранжевый түс */}
+                <IconAccessPoint size={24} color="#ffffff" /> {/* Оранжевый түс */}
                 <Title order={4} c="white" tt="uppercase" ls={2} fw={800} style={{ fontSize: '14px' }}>
                     {lang === 'en' ? 'Remote Control' : 'ДОСТУП К ЗЕРКАЛУ'}
                 </Title>
             </Group>
             
-            <Badge 
-                color={isOnline ? "green" : "dark"} 
-                variant={isOnline ? "filled" : "outline"} 
-                size="sm" 
-                radius="sm"
-            >
-                {isOnline ? (lang === 'en' ? 'SYNCED' : 'ЖЕЛІДЕ') : (lang === 'en' ? 'STANDALONE' : 'АВТОНОМНО')}
-            </Badge>
+            
         </Group>
         <Paper h={1} bg="#222" w="100%" />
       </Stack>
@@ -70,9 +63,8 @@ const YandexAuth = ({ lang, T }) => {
         {/* A. OFFLINE HINT */}
         {!isOnline && !code && (
             <>
-              <IconDeviceMobile size={60} color="#333" stroke={1.5} />
               <Text c="dimmed" size="xs" ta="center" px="md" tt="uppercase" ls={1}>
-                {lang === 'en' ? 'Scan to control via phone' : 'Сканируйте для управления'}
+                {lang === 'en' ? 'Scan to control via phone' : 'Для управления через телефон заходите в сайт vector.yeee.kz/dashboard'}
               </Text>
             </>
         )}
