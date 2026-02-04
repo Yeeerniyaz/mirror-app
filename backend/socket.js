@@ -1,16 +1,15 @@
 import { io } from "socket.io-client";
-import { getDeviceId } from "./identity.js"; // getOrCreateDeviceId емес, getDeviceId болуы мүмкін, тексеріп ал
+import { getDeviceId } from "./identity.js";
+import { BrowserWindow } from "electron"; // 👈 Міндетті түрде қосу
 
-// Сенің серверің
 const SERVER_URL = "https://vector.yeee.kz";
 const deviceId = getDeviceId(); 
 
 console.log("🔌 Connecting to Socket.IO:", SERVER_URL, "ID:", deviceId);
 
-// Серверге қосылу
 export const socket = io(SERVER_URL, {
     query: { 
-        deviceId: deviceId,
+        deviceId: deviceId, 
         type: 'mirror' 
     },
     reconnection: true, 
@@ -19,13 +18,26 @@ export const socket = io(SERVER_URL, {
 
 socket.on("connect", () => {
     console.log("✅ Socket Connected! ID:", socket.id);
-    
-    // --- ОСЫ ЖОЛДАР ЖЕТІСПЕЙ ТҰР ЕДІ 👇 ---
-    // Серверге өзімізді тіркейміз, сонда ол бізді "online" деп таниды
+    // Серверге өзімізді тіркейміз
     socket.emit('register', { 
         deviceId: deviceId, 
         type: 'mirror' 
     });
+});
+
+// Бұлттан команда келгенде оны React-ке (Renderer) жіберу
+socket.on("command", (data) => {
+    console.log("🤖 Socket command from Cloud:", data);
+    
+    // Ашық терезелерді тауып, команданы React-ке бағыттаймыз
+    const windows = BrowserWindow.getAllWindows();
+    if (windows.length > 0) {
+        // Бірінші терезеге (main window) жіберу
+        windows[0].webContents.send("command", data);
+        console.log("📡 Sent to React UI via IPC");
+    } else {
+        console.error("❌ No active window found to receive command");
+    }
 });
 
 socket.on("connect_error", (err) => {

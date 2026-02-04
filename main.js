@@ -8,6 +8,7 @@ import { getDeviceId } from "./backend/identity.js";
 // ❌ MQTT алып тасталды
 import { setupIpc } from "./backend/ipc.js";
 import { setupUpdater } from "./backend/updater.js";
+import "./backend/socket.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

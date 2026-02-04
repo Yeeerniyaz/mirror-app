@@ -12,6 +12,7 @@ import { useHardwareBridge } from "./hooks/useHardwareBridge";
 const ipc = window.require ? window.require("electron").ipcRenderer : null;
 
 export default function App() {
+  useHardwareBridge();
   const [page, setPage] = useState(0);
 
   const {
@@ -23,20 +24,18 @@ export default function App() {
     updProgress,
     appVersion,
     setUpdStatus,
-    config // <--- ЖАҢА: Серверден келген баптаулар (Тіл, Қала)
+    config, // <--- ЖАҢА: Серверден келген баптаулар (Тіл, Қала)
   } = useMirrorData();
 
   // --- СИСТЕМНЫЕ КОМАНДЫ ---
   const openWifiSettings = () => ipc?.send("open-wifi-settings");
   const updateMirror = () => ipc?.send("check-for-updates");
-  
+
   const sendCmd = (cmd) => {
     setUpdStatus(`ВЫПОЛНЕНИЕ: ${cmd.toUpperCase()}...`);
     ipc?.send("system-cmd", cmd);
     setTimeout(() => setUpdStatus(""), 2000);
   };
-
-  useHardwareBridge();
 
   // --- LOOP (БЕСКОНЕЧНЫЙ) НАВИГАЦИЯ ЛОГИКАСЫ ---
   const nextPage = () => setPage((p) => (p === 3 ? 0 : p + 1));
@@ -66,9 +65,32 @@ export default function App() {
       >
         {/* UPDATES BAR */}
         {updStatus && (
-          <Box style={{ position: "fixed", top: 40, left: "50%", transform: "translateX(-50%)", zIndex: 10000, width: 320, background: "rgba(5,5,5,0.95)", padding: "20px", border: "1px solid #111", borderRadius: "4px" }}>
-            <Text size="xs" fw={900} mb={updProgress > 0 ? 10 : 0} ta="center" style={{ letterSpacing: "3px" }}>{updStatus.toUpperCase()}</Text>
-            {updProgress > 0 && <Progress value={updProgress} color="white" size="xs" animated />}
+          <Box
+            style={{
+              position: "fixed",
+              top: 40,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 10000,
+              width: 320,
+              background: "rgba(5,5,5,0.95)",
+              padding: "20px",
+              border: "1px solid #111",
+              borderRadius: "4px",
+            }}
+          >
+            <Text
+              size="xs"
+              fw={900}
+              mb={updProgress > 0 ? 10 : 0}
+              ta="center"
+              style={{ letterSpacing: "3px" }}
+            >
+              {updStatus.toUpperCase()}
+            </Text>
+            {updProgress > 0 && (
+              <Progress value={updProgress} color="white" size="xs" animated />
+            )}
           </Box>
         )}
 
@@ -76,7 +98,7 @@ export default function App() {
         <Box
           style={{
             display: "flex",
-            width: "400vw", 
+            width: "400vw",
             height: "100vh",
             transition: "transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
             transform: `translateX(-${page * 100}vw)`,
@@ -84,20 +106,20 @@ export default function App() {
         >
           {/* 1. DASHBOARD */}
           <Box style={{ width: "100vw", height: "100vh" }}>
-            <Dashboard 
-                time={time} 
-                weather={weather} 
-                sensors={sensors} 
-                news={news} 
-                config={config} // <--- Config жібердік (Тіл ауысу үшін)
+            <Dashboard
+              time={time}
+              weather={weather}
+              sensors={sensors}
+              news={news}
+              config={config} // <--- Config жібердік (Тіл ауысу үшін)
             />
           </Box>
-          
+
           {/* 2. HUB */}
           <Box style={{ width: "100vw", height: "100vh" }}>
             <Hub setPage={setPage} />
           </Box>
-          
+
           {/* 3. SETTINGS */}
           <Box style={{ width: "100vw", height: "100vh" }}>
             <Settings
@@ -116,7 +138,15 @@ export default function App() {
         </Box>
 
         {/* DOTS (ИНДИКАТОРЛАР) */}
-        <Box style={{ position: "fixed", bottom: 40, left: "50%", transform: "translateX(-50%)", zIndex: 100 }}>
+        <Box
+          style={{
+            position: "fixed",
+            bottom: 40,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 100,
+          }}
+        >
           <div style={{ display: "flex", gap: "15px" }}>
             {[0, 1, 2, 3].map((i) => (
               <Box
@@ -129,7 +159,7 @@ export default function App() {
                   backgroundColor: i === page ? "white" : "#333",
                   border: i === page ? "none" : "1px solid #444",
                   transition: "all 0.4s ease",
-                  cursor: "pointer"
+                  cursor: "pointer",
                 }}
               />
             ))}

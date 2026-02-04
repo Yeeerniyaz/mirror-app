@@ -77,7 +77,7 @@ const LedControl = () => {
         w="100%" 
         maw={750} // Settings-пен бірдей өлшем
         gap="md" 
-        p="md"
+        p="0md"
         style={{ maxHeight: '100vh', overflowY: 'auto' }} // Егер экран кіші болса скролл шығады
       >
 

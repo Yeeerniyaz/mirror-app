@@ -1,58 +1,110 @@
-import { useEffect } from "react";
+import { useEffect } from 'react';
 
-// Python сервер адресі (useLed-пен бірдей)
-const API_BASE = "http://localhost:5005";
-const ipc = window.require ? window.require("electron").ipcRenderer : null;
+const PYTHON_API = "http://127.0.0.1:5005";
 
-export function useHardwareBridge() {
+export const useHardwareBridge = () => {
+  // HSV форматын RGB-ге айналдыру (Python Bridge үшін)
+  const hsvToRgb = (h, s, v) => {
+    s /= 100;
+    v /= 100;
+    let r, g, b;
+    let i = Math.floor(h / 60);
+    let f = h / 60 - i;
+    let p = v * (1 - s);
+    let q = v * (1 - f * s);
+    let t = v * (1 - (1 - f) * s);
+    switch (i % 6) {
+      case 0: r = v; g = t; b = p; break;
+      case 1: r = q; g = v; b = p; break;
+      case 2: r = p; g = v; b = t; break;
+      case 3: r = p; g = q; b = v; break;
+      case 4: r = t; g = p; b = v; break;
+      case 5: r = v; g = p; b = q; break;
+      default: r = 0; g = 0; b = 0;
+    }
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+  };
+
+  // Python-ға дерек жіберу
+  const sendToHardware = async (endpoint, body) => {
+    try {
+      const response = await fetch(`${PYTHON_API}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (response.ok) {
+        console.log(`✅ Sent to Python: ${endpoint}`, body);
+      } else {
+        console.warn(`⚠️ Python responded with error for ${endpoint}: ${response.status}`);
+      }
+    } catch (e) {
+      console.error("❌ Python Bridge Error:", e.message);
+    }
+  };
+
   useEffect(() => {
-    if (!ipc) return;
+    const electron = window.require ? window.require("electron").ipcRenderer : null;
+    if (!electron) {
+      console.warn("🔗 Bridge: Electron IPC not found. Make sure you are in Electron environment.");
+      return;
+    }
 
-    // Electron-нан "command" келгенде іске қосылады
-    const handleCommand = (_event, cmd) => {
-      console.log("⚡ React: Command received via IPC ->", cmd);
+    console.log("🔗 Bridge active: Listening for commands...");
 
-      // 1. LED командасы (Түс, Режим, ON/OFF)
-      if (cmd.led) {
-        fetch(`${API_BASE}/led/command`, { // Python-да осы endpoint бар екеніне көз жеткіз, немесе бөліп жібер
-           // Егер Python-да бөлек-бөлек болса, switch қолданамыз:
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify(cmd.led) 
-        }).then(() => console.log("✅ LED command sent to Python"))
-          .catch(e => console.error("❌ LED Error:", e));
-        
-        // ЕСКЕРТУ: Python жағында (app.py) әмбебап қабылдағыш болмаса, 
-        // useLed-тегідей нақты endpoint-терге бөлу керек:
-        if (cmd.led.color) sendToPython('/led/color', { color: cmd.led.color });
-        if (cmd.led.mode) sendToPython('/led/mode', { mode: cmd.led.mode });
-        if (typeof cmd.led.on === 'boolean') {
-             if (cmd.led.on) sendToPython('/led/on', {}); // Немесе логикаңа қарай
-             else sendToPython('/led/off', {});
-        }
+    const handleCommand = (event, command) => {
+      console.log("🤖 Received in Hook:", command);
+
+      if (!command) return;
+
+      // --- 1. ЭКРАНДЫ БАСҚАРУ (HDMI Power) ---
+      // Бұл бөлім Dashboard-тағы SCR батырмасы үшін жауап береді
+      if (command.screen !== undefined) {
+        const screenState = typeof command.screen === 'object' ? command.screen.on : command.screen;
+        console.log("🖥 Sending Screen Command to Bridge:", screenState);
+        sendToHardware("/screen", { on: !!screenState });
       }
 
-      // 2. Экран командасы
-      if (cmd.screen) {
-        // Python-да экранды басқаратын endpoint болса
-        fetch(`${API_BASE}/screen`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(cmd.screen)
-        }).catch(e => console.error("❌ Screen Error:", e));
+      // --- 2. LED ЖАРЫҒЫН БАСҚАРУ ---
+      if (command.led) {
+        const { color, mode, on, brightness, speed } = command.led;
+
+        // Өшіру/Қосу
+        if (on === false) {
+          sendToHardware("/led/off", {});
+        } else if (on === true && !color && !mode) {
+          sendToHardware("/led/on", {});
+        }
+
+        // Түс (RGB айналдыру)
+        if (color) {
+          const rgb = hsvToRgb(color.h, color.s, color.v);
+          sendToHardware("/led/color", { color: rgb });
+
+          if (mode) {
+            setTimeout(() => sendToHardware("/led/mode", { mode: mode.toUpperCase() }), 100);
+          }
+        } 
+        // Тек режимді ауыстыру
+        else if (mode) {
+          sendToHardware("/led/mode", { mode: mode.toUpperCase() });
+        }
+
+        // Жарықтық (Brightness)
+        if (brightness !== undefined) {
+          sendToHardware("/led/brightness", { value: parseInt(brightness) });
+        }
+
+        // Жылдамдық (Speed)
+        if (speed !== undefined) {
+          sendToHardware("/led/speed", { value: parseInt(speed) });
+        }
       }
     };
 
-    ipc.on("command", handleCommand);
-    return () => ipc.removeListener("command", handleCommand);
+    electron.on("command", handleCommand);
+    return () => electron.removeAllListeners("command");
   }, []);
-}
 
-// Көмекші функция
-function sendToPython(endpoint, body) {
-    fetch(`${API_BASE}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    }).catch(e => console.error(`❌ Python Error [${endpoint}]:`, e));
-}
+  return null;
+};
