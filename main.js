@@ -5,10 +5,9 @@ import { fileURLToPath } from "url";
 
 // --- МИКРОСЕРВИСЫ ---
 import { getDeviceId } from "./backend/identity.js";
-import { setupMqtt } from "./backend/mqtt.js";
+// ❌ MQTT алып тасталды
 import { setupIpc } from "./backend/ipc.js";
 import { setupUpdater } from "./backend/updater.js";
-// ✅ Убрали setupBle, так как соединение с ESP по Bluetooth больше не нужно в Electron
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +24,7 @@ function ensureConfigExists(id) {
             deviceId: id,
             ledCount: 300,
             city: "Almaty",
-            mqttBroker: "82.115.43.240",
+            // mqttBroker жойылды, енді керек емес
             language: "ru",
             kioskMode: true
         };
@@ -44,11 +43,10 @@ let mainWindow;
 const deviceId = getDeviceId();
 ensureConfigExists(deviceId);
 
-// ✅ Убрали startPythonBridge(), теперь ты планируешь загружать Python логику напрямую
-// ✅ Убрали setupBle(), освобождаем систему от лишних Bluetooth-зависимостей
+// Socket.IO логикасы енді setupIpc немесе бөлек модулде (socket.js) жүреді
+// MQTT клиентін құруды алып тастадық
 
-const mqttClient = setupMqtt(deviceId, null);
-setupIpc(deviceId, mqttClient);
+setupIpc(deviceId); // ✅ mqttClient аргументі енді керек емес
 setupUpdater(() => mainWindow);
 
 protocol.registerSchemesAsPrivileged([
@@ -91,7 +89,6 @@ function createWindow() {
 app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
-  // ✅ Убрали убийство pythonProcess, так как он больше не запускается как spawn
   if (process.platform !== "darwin") app.quit();
 });
 

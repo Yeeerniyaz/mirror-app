@@ -1,8 +1,9 @@
 import { ipcMain, BrowserWindow, app } from "electron";
 import { exec } from "child_process";
 import { requestPairingCode, getAliceStatus, logoutAlice } from "./alice.js";
-import { socket } from "./socket.js"; // <--- ТҮЗЕТІЛДІ (MQTT ЖОҚ)
+import { socket } from "./socket.js"; 
 import updater from "./updater.js";
+import { saveUserToken } from "./identity.js"; // <--- МАҢЫЗДЫ: Токен сақтау үшін импорттадық
 
 export const setupIpc = (deviceId) => {
   
@@ -28,12 +29,12 @@ export const setupIpc = (deviceId) => {
       gnome-control-center wifi
     `;
     exec(cmd, (err) => {
-      // Fallback: Егер gnome-control ашылмаса, жоғарғы панельді ашуға тырысамыз
+      // Fallback
       if (err) exec(`DISPLAY=:0 dbus-send --session --type=method_call --dest=org.gnome.Shell /org/gnome/Shell org.gnome.Shell.Eval string:"Main.panel.statusArea.aggregateMenu._network.menu.toggle();"`);
     });
   });
 
-  // 5. Запуск приложений (YouTube TV и др.)
+  // 5. Запуск приложений
   ipcMain.on("launch", (event, { data, type }) => {
     if (type === "sys") {
       exec(data);
@@ -62,7 +63,7 @@ export const setupIpc = (deviceId) => {
     return logoutAlice();
   });
 
-  // --- 7. UPDATER (ЖАҢАРТУ) ---
+  // --- 7. UPDATER ---
   ipcMain.on('check-for-updates', (event) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       updater.checkForUpdates(win);
@@ -72,30 +73,42 @@ export const setupIpc = (deviceId) => {
       event.reply('app-version', app.getVersion());
   });
 
-  // --- 8. CONFIG SYNC (Socket.IO) ---
+  // --- 8. SOCKET.IO SYNC (Config & Pairing) ---
   
-  // React қосылғанда "config берші" деп сұрайды
+  // A. Config сұрау (React -> Electron -> Server)
   ipcMain.on('get-config', () => {
       console.log("ipc: get-config requested. Asking server...");
-      // Серверден сұрау (егер сервер қолдаса)
       socket.emit('request_config'); 
   });
 
-  // Серверден жаңа баптау келсе (Тіл, Қала) -> React-қа жібереміз
+  // B. Жаңа config келді (Server -> Electron -> React)
   socket.on('config_updated', (newConfig) => {
       console.log("ipc: 🔥 config received from server", newConfig);
-      
-      // Барлық ашық терезелерге жібереміз
       BrowserWindow.getAllWindows().forEach(win => {
           win.webContents.send('config-updated', newConfig);
       });
   });
 
-  // Серверден команда келсе (мысалы, "reboot")
+  // C. СӘТТІ ЖҰПТАУ (Server -> Electron -> React) <--- ЖАҢА ҚОСЫЛҒАН БӨЛІК
+  socket.on('pairing_success', (data) => {
+      console.log("ipc: 🔗 Pairing Success!", data);
+      
+      // 1. Токенді файлға сақтаймыз (келесі жолы авто-кіру үшін)
+      if (data.userId) {
+          saveUserToken(data.userId);
+      }
+
+      // 2. React-қа хабарлаймыз: "Экранды жаңарт, біз кірдік!"
+      BrowserWindow.getAllWindows().forEach(win => {
+          win.webContents.send('alice-status-changed', 'online');
+      });
+  });
+
+  // D. Командалар (Server -> Electron -> React/System)
   socket.on('command', (cmd) => {
       console.log("ipc: 🤖 command received", cmd);
       if (cmd.type === 'reboot') exec("sudo reboot");
-      // Басқа командаларды React-қа жібереміз (мысалы, LED басқару)
+      
       BrowserWindow.getAllWindows().forEach(win => {
           win.webContents.send('command', cmd);
       });

@@ -14,8 +14,8 @@ export function useAlice() {
         .then((res) => setStatus(res?.status || "disconnected"))
         .catch((e) => console.error("Alice status err:", e));
 
-      // 2. 👇 СЛУШАЕМ СОБЫТИЯ (когда прилетит MQTT успех)
-      // Это сработает само, когда ты введешь код на телефоне
+      // 2. 👇 СЛУШАЕМ СОБЫТИЯ (SOCKET.IO)
+      // Серверден "pairing_success" келгенде, Electron осы оқиғаны жібереді
       const handleStatusChange = (_event, newStatus) => {
         console.log("⚡ Alice Status Updated via IPC:", newStatus);
         setStatus(newStatus);
@@ -37,16 +37,15 @@ export function useAlice() {
 
     if (ipc) {
       try {
-        // Запрашиваем код у сервера через Electron
+        // Запрашиваем код у сервера через Electron (HTTP request to /pair)
         result = await ipc.invoke('alice:pair');
         console.log("Hooks: Pair result", result);
       } catch (e) {
         console.error("Alice pair failed", e);
       }
     } else {
-      // 🚧 Заглушка для браузера (тест без Electron)
+      // 🚧 Заглушка для браузера
       console.log("🚧 Browser Mode: Fake Pairing Code");
-      // Имитируем задержку и выдачу кода
       await new Promise(r => setTimeout(r, 1000));
       result = { success: true, code: "123 456" };
     }
