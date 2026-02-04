@@ -1,6 +1,8 @@
 import React from 'react';
-import { Container, Stack, Title, SimpleGrid, UnstyledButton, Box, Text, Group } from "@mantine/core";
+import { Container, Stack, Title, SimpleGrid, UnstyledButton, Text, Group } from "@mantine/core";
 import { Youtube, Bookmark, Calendar as GoogleIcon, Music, Calculator, Clock, Terminal, ArrowUpRight } from "lucide-react";
+
+const ipc = window.require ? window.require("electron").ipcRenderer : null;
 
 // 1. APP CARD (ҚОСЫМША КАРТОЧКАСЫ)
 const AppCard = ({ icon: Icon, name, onClick }) => {
@@ -41,35 +43,46 @@ const AppCard = ({ icon: Icon, name, onClick }) => {
   );
 };
 
-export const Hub = ({ launch }) => {
+export const Hub = () => { // Props арқылы launch алудың қажеті жоқ, ішінде жасаймыз
+  
+  // ҚОСЫМШАНЫ ІСКЕ ҚОСУ ФУНКЦИЯСЫ
+  const launch = (url, type = "web") => {
+    if (ipc) {
+      ipc.send("launch", { data: url, type });
+    } else {
+      console.log("Launch (Browser Mode):", url);
+      window.open(url, "_blank");
+    }
+  };
+
   const services = [
     {
       name: "YOUTUBE TV",
       icon: Youtube,
-      action: () => launch("https://www.youtube.com/tv", "web", true),
+      action: () => launch("https://www.youtube.com/tv", "web"),
     },
     {
-      name: "КАЛЕНДАРЬ", // Орысша
+      name: "GOOGLE CALENDAR",
       icon: GoogleIcon,
       action: () => launch("https://calendar.google.com", "web"),
     },
     {
-      name: "ЗАМЕТКИ", // Keep орнына түсініктірек
+      name: "GOOGLE KEEP",
       icon: Bookmark,
       action: () => launch("https://keep.google.com", "web"),
     },
     {
-      name: "ЯНДЕКС МУЗЫКА",
+      name: "YANDEX MUSIC",
       icon: Music,
       action: () => launch("https://music.yandex.kz", "web"),
     },
     {
-      name: "КАЛЬКУЛЯТОР",
+      name: "CALCULATOR",
       icon: Calculator,
       action: () => launch("gnome-calculator", "sys"),
     },
     {
-      name: "ЧАСЫ",
+      name: "CLOCKS",
       icon: Clock,
       action: () => launch("gnome-clocks", "sys"),
     },

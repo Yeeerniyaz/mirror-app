@@ -5,7 +5,7 @@ const RSS_API = "https://api.rss2json.com/v1/api.json?rss_url=";
 
 const ipc = window.require ? window.require("electron").ipcRenderer : null;
 
-// --- 1. ЖАҢАЛЫҚТАР КӨЗДЕРІ (Тек Қазақстан) ---
+// --- 1. ЖАҢАЛЫҚТАР КӨЗДЕРІ (Тілге байланысты) ---
 const getNewsSources = (lang) => {
   switch (lang) {
     case 'kk':
@@ -17,7 +17,6 @@ const getNewsSources = (lang) => {
       ];
     case 'en':
       return [
-        // Шетелдік сайттар жойылды, тек Қазақстандық ағылшын сайттары
         { url: 'https://en.tengrinews.kz/news.rss', name: 'TENGRI (EN)' },
         { url: 'https://www.inform.kz/rss/en.xml', name: 'KAZINFORM (EN)' },
         { url: 'https://astanatimes.com/feed/', name: 'ASTANA TIMES' }
@@ -118,7 +117,7 @@ export function useMirrorData() {
     const { lat, lon } = location;
     const currentLang = config.language || 'ru';
     
-    // 1. Тілге сай жаңалық көздерін аламыз (ТЕК ҚАЗАҚСТАН)
+    // 1. Тілге сай жаңалық көздерін аламыз
     const newsSources = getNewsSources(currentLang);
 
     try {
@@ -167,7 +166,6 @@ export function useMirrorData() {
       });
 
       if (combinedNews.length > 0) {
-        // Ең жаңасын жоғарыға шығарамыз
         const sorted = combinedNews.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 15);
         setNews(sorted);
       } else {
