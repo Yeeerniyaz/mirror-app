@@ -82,12 +82,13 @@ export const Settings = ({
       style={{
         display: "flex",
         flexDirection: "column",
-        overflowY: "auto", // Скролл, если контента много
-        padding: "40px 20px",
+        alignItems: "center", // Контентті ортаға жинаймыз
+        overflowY: "auto", 
+        padding: "60px 20px",
       }}
     >
-      {/* HEADER - Ортақ тақырып */}
-      <Stack gap={4} mb={40} align="center">
+      {/* 1. HEADER - Орталықтандырылған тақырып */}
+      <Stack gap={4} mb={60} align="center" w="100%" maw={1000}>
         <Title
           order={2}
           c="white"
@@ -114,19 +115,19 @@ export const Settings = ({
         </Group>
       </Stack>
 
-      {/* АДАПТИВТІ ТОР (GRID) */}
-      {/* base: 1 (портрет - астын-үстін), lg: 2 (ландшафт - қатар) */}
+      {/* 2. АДАПТИВТІ ТОР (MAW ограничивает ширину, чтобы не растягивалось) */}
       <SimpleGrid 
         cols={{ base: 1, lg: 2 }} 
         spacing={50} 
-        maw={1200} 
-        style={{ margin: "0 auto", width: "100%" }}
+        w="100%" 
+        maw={1000} // Оң жақ пен сол жақтың жалпы енін шектеу
+        style={{ margin: "0 auto" }}
       >
         
         {/* LEFT COLUMN: SETTINGS */}
         <Stack gap="xl">
           <Box>
-            <Text c="dimmed" size="xs" tt="uppercase" fw={700} ls={2} mb="xs">
+            <Text c="dimmed" size="xs" tt="uppercase" fw={700} ls={2} mb="md">
               {T.system_settings}
             </Text>
             <Stack gap="sm">
@@ -155,7 +156,7 @@ export const Settings = ({
           </Box>
 
           <Box>
-            <Text c="dimmed" size="xs" tt="uppercase" fw={700} ls={2} mb="xs">
+            <Text c="dimmed" size="xs" tt="uppercase" fw={700} ls={2} mb="md">
               {T.voice_assistant}
             </Text>
             <YandexAuth lang={lang} T={T} />
@@ -164,7 +165,7 @@ export const Settings = ({
 
         {/* RIGHT COLUMN: LED CONTROL */}
         <Box>
-          <Group gap="xs" mb="xs">
+          <Group gap="xs" mb="md">
             <Palette size={14} color="#444" />
             <Text c="dimmed" size="xs" tt="uppercase" fw={700} ls={2}>
               {lang === "ru" ? "Управление светом" : "Жарықты басқару"}
@@ -175,7 +176,8 @@ export const Settings = ({
               border: "1px solid #222", 
               borderRadius: "8px", 
               padding: "24px", 
-              backgroundColor: "#050505" 
+              backgroundColor: "#050505",
+              height: "fit-content"
             }}
           >
             <LedControl />
